@@ -9,7 +9,7 @@ class F_pPolynomial:
                  coefficients: List[F_pElement]|None = None):
         if p is not None and not is_prime(p):
             raise ValueError(f"p must be prime, cannot be {p}")
-        if degree_bound < 0:
+        if degree_bound is not None and degree_bound < 0:
             raise ValueError("degree_bound must be non-negative")
         if p is None and (coefficients is None or len(coefficients) == 0):
             raise ValueError("p or coefficients must be provided")
@@ -49,10 +49,10 @@ class F_pPolynomial:
                 f"least_coefficient must be from the field of order {p}")
         if degree_bound < 0:
             raise ValueError("degree_bound must be non-negative")
-        if least_coefficient is not None:
+        if least_coefficient is None:
             least_coefficient = F_pElement.random(p)
-        return F_pPolynomial(p, degree_bound, coefficients=[least_coefficient]
-                             + [F_pElement.random(p)
+        return F_pPolynomial(p, degree_bound, coefficients=
+                             [least_coefficient] + [F_pElement.random(p)
                                 for _ in range(degree_bound)])
 
     def __eq__(self, other):

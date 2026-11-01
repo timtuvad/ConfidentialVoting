@@ -5,8 +5,7 @@ from ..utils import is_prime
 class F_pElement:
 
     def __init__(self, p: int, value: int|None = None):
-        if not is_prime(p):
-            raise ValueError(f"p must be prime, cannot be {p}")
+        F_pElement.__check_is_prime(p)
         self.__p = p
         self.__value = 0 if value is None else value % p
 
@@ -28,12 +27,12 @@ class F_pElement:
 
     @staticmethod
     def random(p: int):
+        F_pElement.__check_is_prime(p)
         return F_pElement(p, value=randrange(p))
 
     @staticmethod
     def randomGenerating(p: int):
-        if not is_prime(p):
-            raise ValueError(f"p must be prime, cannot be {p}")
+        F_pElement.__check_is_prime(p)
         if p == 2:
             return F_pElement.unit(p)
         return F_pElement(p, value=randrange(2, p))
@@ -62,31 +61,19 @@ class F_pElement:
         return F_pElement(self.__p, (-self.__value) % self.__p)
 
     def __add__(self, other):
-        if type(self) is not type(other):
-            raise TypeError("unsupported operand type(s) for +: "
-               f"'{self.__class__.__name__}' and '{other.__class__.__name__}'")
-        if self.__p != other.__p:
-            raise TypeError("cannot add two elements in different fields")
+        self.__check_types(other, "+")
         return F_pElement(self.__p, (self.__value + other.__value) % self.__p)
 
     def __sub__(self, other):
-        if type(self) is not type(other):
-            raise TypeError("unsupported operand type(s) for -: "
-               f"'{self.__class__.__name__}' and '{other.__class__.__name__}'")
+        self.__check_types(other, "-")
         return self + (-other)
 
     def __mul__(self, other):
-        if type(self) is not type(other):
-            raise TypeError("unsupported operand type(s) for *: "
-               f"'{self.__class__.__name__}' and '{other.__class__.__name__}'")
-        if self.__p != other.__p:
-            raise TypeError("cannot multiply two elements in different fields")
+        self.__check_types(other, "*")
         return F_pElement(self.__p, (self.__value * other.__value) % self.__p)
 
     def __pow__(self, exp: int):
-        if type(exp) is not int:
-            raise TypeError("unsupported operand type(s) for ** or pow(): "
-               f"'{self.__class__.__name__}' and '{exp.__class__.__name__}'")
+        self.__check_types(exp, "** or pow()", int)
         return F_pElement(self.__p, pow(self.__value, exp, self.__p))
 
     def __invert__(self):
@@ -96,9 +83,19 @@ class F_pElement:
         return self.__pow__(-1)
 
     def __truediv__(self, other):
-        if type(self) is not type(other):
-            raise TypeError("unsupported operand type(s) for /: "
-               f"'{self.__class__.__name__}' and '{other.__class__.__name__}'")
-        if self.__p != other.__p:
-            raise TypeError("cannot divide two elements in different fields")
+        self.__check_types(other, "/")
         return self * (~other)
+
+    @staticmethod
+    def __check_is_prime(p: int):
+        if not is_prime(p):
+            raise ValueError(f"p must be prime, cannot be {p}")
+
+    def __check_types(self, other, operation: str, needed: type | None = None):
+        if type(other) is not (needed or type(self)):
+            raise TypeError(f"unsupported operand type(s) for {operation}: "
+               f"'{self.__class__.__name__}' and '{other.__class__.__name__}'")
+        if needed is None:
+            if self.__p != other.__p:
+                raise TypeError(f"cannot {operation} with two elements in "
+                                "different fields")

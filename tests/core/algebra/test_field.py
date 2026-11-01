@@ -6,6 +6,7 @@
     * __init__          — валидация простоты p, приведение value по модулю, value=None;
     * p, value          — свойства только для чтения;
     * zero, unit        — статические конструкторы;
+    * random            — произвольный элемент поля (включая 0 и 1);
     * randomGenerating  — случайный элемент, частный случай p == 2, непростое p;
     * __str__, __repr__ — строковое и отладочное представление;
     * __eq__, __ne__    — сравнение, в т.ч. с чужими типами, подклассом и чужим полем;
@@ -270,10 +271,10 @@ def test_value_property_is_stable_across_calls(make_element, p, value):
 ])
 def test_public_api_is_properties_and_static_constructors(make_element, p, value):
     # нюанс инкапсуляции: состояние скрыто, публично доступны только свойства
-    # p/value и статические конструкторы zero/unit/randomGenerating
+    # p/value и статические конструкторы zero/unit/random/randomGenerating
     el = make_element(p, value)
     public_names = {name for name in dir(el) if not name.startswith("_")}
-    assert public_names == {"p", "value", "zero", "unit", "randomGenerating"}
+    assert public_names == {"p", "value", "zero", "unit", "random", "randomGenerating"}
     assert not hasattr(el, "__p")
     assert not hasattr(el, "__value")
 
@@ -465,6 +466,94 @@ def test_random_generating_covers_many_residues(p):
     if p == 101:
         # 400 выборок из 99 возможных значений покрывают заметную часть поля
         assert len(values) > 20
+
+
+# ===========================================================================
+# 5b. random(p) — произвольный элемент поля (включая 0 и 1)
+# ===========================================================================
+
+@pytest.mark.parametrize("p", PRIMES)
+def test_random_returns_element_of_field(p):
+    for _ in range(20):
+        el = F_pElement.random(p)
+        assert isinstance(el, F_pElement)
+        assert el.p == p
+        assert 0 <= el.value < p
+
+
+@pytest.mark.parametrize("p", [5, 7, 11, 13, 101])
+def test_random_can_return_zero_and_one(p):
+    # в отличие от randomGenerating, значения 0 и 1 достижимы
+    values = {F_pElement.random(p).value for _ in range(3000)}
+    assert 0 in values
+    assert 1 in values
+
+
+@pytest.mark.parametrize("p", NON_PRIMES)
+def test_random_non_prime_p_raises_value_error(p):
+    # явной проверки простоты в random() нет: при p <= 0 исключение бросает
+    # randrange(), при p > 0 — конструктор F_pElement
+    with pytest.raises(ValueError):
+        F_pElement.random(p)
+
+
+@pytest.mark.parametrize("p", [1, 4, 6, 8, 9, 10, 12, 15, 21, 25, 27, 100])
+def test_random_non_prime_positive_p_reports_message(p):
+    with pytest.raises(ValueError, match=f"p must be prime, cannot be {p}"):
+        F_pElement.random(p)
+
+
+@pytest.mark.parametrize("count", [1, 5, 20, 50])
+def test_random_for_p_two_returns_zero_or_one(count):
+    for _ in range(count):
+        el = F_pElement.random(2)
+        assert el.value in (0, 1)
+        assert el.p == 2
+
+
+@pytest.mark.parametrize("p", [5, 7, 11, 13, 101])
+def test_random_returns_new_object_each_call(p):
+    assert F_pElement.random(p) is not F_pElement.random(p)
+
+
+@pytest.mark.parametrize("p", [5, 7, 11, 13])
+def test_random_produces_different_values(p):
+    values = {F_pElement.random(p).value for _ in range(300)}
+    assert len(values) > 1
+
+
+def test_random_covers_whole_small_field():
+    values = {F_pElement.random(7).value for _ in range(5000)}
+    assert values == set(range(7))
+
+
+@pytest.mark.parametrize("p", [5, 7, 11, 13])
+def test_random_result_is_usable_in_arithmetic(p):
+    el = F_pElement.random(p)
+    assert isinstance(el + el, F_pElement)
+    assert isinstance(el * el, F_pElement)
+    assert isinstance(-el, F_pElement)
+    assert isinstance(el ** 2, F_pElement)
+
+
+@pytest.mark.parametrize("p", [5, 7, 11, 13, 101])
+def test_random_element_is_zero_or_invertible(p):
+    for _ in range(50):
+        el = F_pElement.random(p)
+        if el == F_pElement.zero(p):
+            with pytest.raises(ZeroDivisionError):
+                ~el
+        else:
+            assert el * ~el == F_pElement.unit(p)
+
+
+@pytest.mark.parametrize("p", [5, 7, 11, 13, 101])
+def test_random_range_is_wider_than_random_generating(p):
+    random_values = {F_pElement.random(p).value for _ in range(2000)}
+    generating_values = {F_pElement.randomGenerating(p).value for _ in range(2000)}
+    assert random_values <= set(range(p))
+    assert generating_values <= set(range(2, p))
+    assert random_values - generating_values
 
 
 # ===========================================================================
@@ -945,7 +1034,7 @@ def test_add_zero_is_identity(make_element, p, value):
     (5, 7), (2, 3), (7, 11), (5, 101), (13, 17), (3, 5),
 ])
 def test_add_different_fields_raises_type_error(make_element, p1, p2):
-    with pytest.raises(TypeError, match="cannot add two elements in different fields"):
+    with pytest.raises(TypeError, match="cannot \\+ with two elements in different fields"):
         make_element(p1, 1) + make_element(p2, 1)
 
 
@@ -1056,7 +1145,7 @@ def test_sub_is_anti_commutative(make_element, p, v1, v2):
 ])
 def test_sub_different_fields_raises_type_error(make_element, p1, p2):
     # нюанс: __sub__ делегирует __add__, поэтому сообщение — про сложение
-    with pytest.raises(TypeError, match="cannot add two elements in different fields"):
+    with pytest.raises(TypeError, match="cannot - with two elements in different fields"):
         make_element(p1, 1) - make_element(p2, 1)
 
 
@@ -1156,7 +1245,7 @@ def test_mul_by_unit_is_identity(make_element, p, value):
 ])
 def test_mul_different_fields_raises_type_error(make_element, p1, p2):
     with pytest.raises(TypeError,
-                       match="cannot multiply two elements in different fields"):
+                       match="cannot \\* with two elements in different fields"):
         make_element(p1, 1) * make_element(p2, 1)
 
 
@@ -1495,7 +1584,7 @@ def test_division_then_multiplication_restores_value(make_element, p, v1, v2):
 ])
 def test_truediv_different_fields_raises_type_error(make_element, p1, p2):
     with pytest.raises(TypeError,
-                       match="cannot divide two elements in different fields"):
+                       match="cannot / with two elements in different fields"):
         make_element(p1, 1) / make_element(p2, 1)
 
 

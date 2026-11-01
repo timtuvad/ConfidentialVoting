@@ -7,20 +7,20 @@ class ShamirCryptography:
 
     # TODO : добавить подробные комментарии
     # TODO : добавить необходимые проверки
-    def __init__(self, t: int, person_id: F_pElement, vote: F_pElement):
+    def __init__(self, t: int, person_id: F_pElement, voice: F_pElement):
         self.__t = t
         self.__person_id = person_id
-        self.__vote = vote
+        self.__voice = voice
         self.__personal_polynomial = F_pPolynomial.random(self.__person_id.p,
-                        degree_bound=self.__t-1, least_coefficient=self.__vote)
+                        degree_bound=self.__t-1, least_coefficient=self.__voice)
 
     @property
     def person_id(self) -> F_pElement:
         return self.__person_id
 
     @property
-    def vote(self) -> F_pElement:
-        return self.__vote
+    def voice(self) -> F_pElement:
+        return self.__voice
 
     @property
     def personal_polynomial(self) -> F_pPolynomial:
