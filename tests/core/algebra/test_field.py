@@ -5,19 +5,30 @@
 Проверяемый функционал (на каждый элемент — не менее 5 тестов):
     * __init__          — валидация простоты p, приведение value по модулю, value=None;
     * p, value          — свойства только для чтения;
-    * zero, unit        — статические конструкторы;
+    * zero, one        — статические конструкторы;
     * random            — произвольный элемент поля (включая 0 и 1);
     * randomGenerating  — случайный элемент, частный случай p == 2, непростое p;
     * __str__, __repr__ — строковое и отладочное представление;
-    * __eq__, __ne__    — сравнение, в т.ч. с чужими типами, подклассом и чужим полем;
+    * __eq__, __ne__    — сравнение, в т.ч. с чужими типами и чужим полем;
     * __hash__          — хешируемость, согласованность с __eq__;
     * __pos__, __neg__  — унарные операции;
     * __add__, __sub__, __mul__, __truediv__ — арифметика, TypeError для чужих типов
       и для разных полей;
     * __pow__, __invert__ — возведение в степень (включая отрицательную и проверку
       типа показателя) и мультипликативное обращение;
-    * служебные нюансы — отсутствие __bool__/__int__/__radd__, неизменяемость
-      операндов, замкнутость операций, законы поля F_p.
+    * __bool__          — ноль поля ложен, любой ненулевой элемент истинен;
+    * служебные нюансы — отсутствие __int__/__radd__/операторов порядка,
+      неизменяемость операндов, замкнутость операций, законы поля F_p.
+
+Особенности реализации, зафиксированные тестами:
+    * проверка типов в арифметике и в __eq__ выполняется через isinstance;
+    * __mul__ для объекта другого типа выполняет `other * self`, поэтому
+      element * polynomial работает (умножение многочлена на константу),
+      а element * int даёт TypeError уже от интерпретатора;
+    * __pow__ принимает любой int (включая bool, так как bool — подкласс int)
+      и бросает TypeError для прочих типов показателя;
+    * сообщения об ошибках содержат имена полей:
+      "cannot + with two elements in different fields: F_5 and F_7".
 """
 
 import pytest
@@ -37,10 +48,6 @@ NON_PRIMES = [
 ]
 
 NON_ELEMENT_VALUES = [0, 5, -3, "5", None, 3.5, (5,), [5], {5}, object()]
-
-
-class SubElement(F_pElement):
-    """Подкласс для проверки строгой проверки type(self) is type(other)."""
 
 
 # ---------------------------------------------------------------------------
@@ -92,9 +99,9 @@ def zero5():
 
 
 @pytest.fixture
-def unit5():
+def one5():
     """Единица поля F_5."""
-    return F_pElement.unit(5)
+    return F_pElement.one(5)
 
 
 # ===========================================================================
@@ -271,10 +278,10 @@ def test_value_property_is_stable_across_calls(make_element, p, value):
 ])
 def test_public_api_is_properties_and_static_constructors(make_element, p, value):
     # нюанс инкапсуляции: состояние скрыто, публично доступны только свойства
-    # p/value и статические конструкторы zero/unit/random/randomGenerating
+    # p/value и статические конструкторы zero/one/random/randomGenerating
     el = make_element(p, value)
     public_names = {name for name in dir(el) if not name.startswith("_")}
-    assert public_names == {"p", "value", "zero", "unit", "random", "randomGenerating"}
+    assert public_names == {"p", "value", "zero", "one", "random", "randomGenerating"}
     assert not hasattr(el, "__p")
     assert not hasattr(el, "__value")
 
@@ -338,63 +345,63 @@ def test_zero_is_additive_identity(make_element, p, value):
 @pytest.mark.parametrize("p1, p2", [
     (2, 3), (3, 5), (5, 7), (7, 11), (11, 13), (13, 101),
 ])
-def test_zero_and_unit_of_different_fields_are_not_equal(p1, p2):
+def test_zero_and_one_of_different_fields_are_not_equal(p1, p2):
     assert F_pElement.zero(p1) != F_pElement.zero(p2)
-    assert F_pElement.unit(p1) != F_pElement.unit(p2)
-    assert F_pElement.zero(p1) != F_pElement.unit(p2)
+    assert F_pElement.one(p1) != F_pElement.one(p2)
+    assert F_pElement.zero(p1) != F_pElement.one(p2)
 
 
 # ===========================================================================
-# 4. unit(p) — статический конструктор единицы
+# 4. one(p) — статический конструктор единицы
 # ===========================================================================
 
 @pytest.mark.parametrize("p", PRIMES)
-def test_unit_has_value_one(p):
-    unit = F_pElement.unit(p)
-    assert isinstance(unit, F_pElement)
-    assert unit.value == 1 % p
+def test_one_has_value_one(p):
+    one = F_pElement.one(p)
+    assert isinstance(one, F_pElement)
+    assert one.value == 1 % p
 
 
 @pytest.mark.parametrize("p", PRIMES)
-def test_unit_stores_prime(p):
-    assert F_pElement.unit(p).p == p
+def test_one_stores_prime(p):
+    assert F_pElement.one(p).p == p
 
 
 @pytest.mark.parametrize("p", PRIMES)
-def test_unit_equals_constructor_one(p):
-    assert F_pElement.unit(p) == F_pElement(p, 1)
-    assert F_pElement.unit(p) == F_pElement(p, p + 1)
+def test_one_equals_constructor_one(p):
+    assert F_pElement.one(p) == F_pElement(p, 1)
+    assert F_pElement.one(p) == F_pElement(p, p + 1)
 
 
 @pytest.mark.parametrize("p", PRIMES)
-def test_unit_string_representation(p):
-    assert str(F_pElement.unit(p)) == f"(1 mod {p})"
+def test_one_string_representation(p):
+    assert str(F_pElement.one(p)) == f"(1 mod {p})"
 
 
 @pytest.mark.parametrize("p", NON_PRIMES[:6])
-def test_unit_non_prime_raises_value_error(p):
+def test_one_non_prime_raises_value_error(p):
     with pytest.raises(ValueError, match="p must be prime"):
-        F_pElement.unit(p)
+        F_pElement.one(p)
 
 
 @pytest.mark.parametrize("p, value", [
     (5, 0), (5, 3), (7, 6), (11, 1), (13, 7), (2, 1),
 ])
-def test_unit_is_multiplicative_identity(make_element, p, value):
+def test_one_is_multiplicative_identity(make_element, p, value):
     a = make_element(p, value)
-    unit = F_pElement.unit(p)
-    assert a * unit == a
-    assert unit * a == a
+    one = F_pElement.one(p)
+    assert a * one == a
+    assert one * a == a
 
 
 @pytest.mark.parametrize("p", SMALL_PRIMES)
-def test_unit_inverse_is_itself(p):
-    assert ~F_pElement.unit(p) == F_pElement.unit(p)
+def test_one_inverse_is_itself(p):
+    assert ~F_pElement.one(p) == F_pElement.one(p)
 
 
 @pytest.mark.parametrize("p", [2, 5, 7, 11, 13])
-def test_unit_returns_new_object_each_call(p):
-    assert F_pElement.unit(p) is not F_pElement.unit(p)
+def test_one_returns_new_object_each_call(p):
+    assert F_pElement.one(p) is not F_pElement.one(p)
 
 
 # ===========================================================================
@@ -425,10 +432,10 @@ def test_random_generating_never_returns_zero_or_one(p):
 
 
 @pytest.mark.parametrize("count", [1, 5, 20, 50])
-def test_random_generating_for_p_two_returns_unit(count):
+def test_random_generating_for_p_two_returns_one(count):
     for _ in range(count):
         el = F_pElement.randomGenerating(2)
-        assert el == F_pElement.unit(2)
+        assert el == F_pElement.one(2)
         assert el.value == 1
 
 
@@ -544,7 +551,7 @@ def test_random_element_is_zero_or_invertible(p):
             with pytest.raises(ZeroDivisionError):
                 ~el
         else:
-            assert el * ~el == F_pElement.unit(p)
+            assert el * ~el == F_pElement.one(p)
 
 
 @pytest.mark.parametrize("p", [5, 7, 11, 13, 101])
@@ -740,7 +747,7 @@ def test_eq_is_transitive(make_element, p, v1, v2, v3):
 
 @pytest.mark.parametrize("other", NON_ELEMENT_VALUES)
 def test_eq_with_non_element_is_false(make_element, other):
-    # новая реализация: проверка type(self) is not type(other) -> False
+    # нюанс: __eq__ проверяет isinstance(other, F_pElement) -> для чужих типов False
     assert (make_element(5, 2) == other) is False
 
 
@@ -753,25 +760,6 @@ def test_ne_with_non_element_is_true(make_element, other):
 def test_eq_reflected_with_non_element_is_false(make_element, other):
     assert (other == make_element(5, 2)) is False
     assert (other != make_element(5, 2)) is True
-
-
-@pytest.mark.parametrize("p, value", [
-    (5, 1), (7, 2), (11, 3), (13, 4), (101, 5),
-])
-def test_eq_with_subclass_is_false(make_element, p, value):
-    # нюанс: используется type(self) is not type(other), а не isinstance
-    sub = SubElement(p, value)
-    assert (make_element(p, value) == sub) is False
-    assert (sub == make_element(p, value)) is False
-    assert make_element(p, value) != sub
-
-
-@pytest.mark.parametrize("p, value", [
-    (5, 1), (7, 2), (11, 3), (13, 4), (101, 5),
-])
-def test_eq_between_subclass_instances_works(p, value):
-    assert SubElement(p, value) == SubElement(p, value)
-    assert SubElement(p, value) != SubElement(p, value + 1)
 
 
 @pytest.mark.parametrize("p, v1, v2", [
@@ -1051,14 +1039,6 @@ def test_int_plus_element_raises_type_error(make_element, other):
         other + make_element(5, 1)
 
 
-@pytest.mark.parametrize("p, value", [
-    (5, 1), (7, 2), (11, 3), (13, 4), (101, 5),
-])
-def test_add_with_subclass_raises_type_error(p, value):
-    with pytest.raises(TypeError, match="unsupported operand type"):
-        F_pElement(p, value) + SubElement(p, value)
-
-
 @pytest.mark.parametrize("p, v1, v2", [
     (5, 1, 2), (7, 3, 4), (11, 5, 6), (13, 7, 8), (101, 9, 10),
 ])
@@ -1144,8 +1124,9 @@ def test_sub_is_anti_commutative(make_element, p, v1, v2):
     (5, 7), (2, 3), (7, 11), (5, 101), (13, 17), (3, 5),
 ])
 def test_sub_different_fields_raises_type_error(make_element, p1, p2):
-    # нюанс: __sub__ делегирует __add__, поэтому сообщение — про сложение
-    with pytest.raises(TypeError, match="cannot - with two elements in different fields"):
+    # нюанс: __sub__ самостоятельно проверяет операнды, поэтому в сообщении "-"
+    with pytest.raises(TypeError,
+                       match="cannot - with two elements in different fields"):
         make_element(p1, 1) - make_element(p2, 1)
 
 
@@ -1236,8 +1217,8 @@ def test_mul_by_zero_gives_zero(make_element, p, value):
 @pytest.mark.parametrize("p, value", [
     (5, 4), (7, 6), (11, 0), (13, 12), (101, 55),
 ])
-def test_mul_by_unit_is_identity(make_element, p, value):
-    assert make_element(p, value) * F_pElement.unit(p) == make_element(p, value)
+def test_mul_by_one_is_identity(make_element, p, value):
+    assert make_element(p, value) * F_pElement.one(p) == make_element(p, value)
 
 
 @pytest.mark.parametrize("p1, p2", [
@@ -1251,7 +1232,9 @@ def test_mul_different_fields_raises_type_error(make_element, p1, p2):
 
 @pytest.mark.parametrize("other", NON_ELEMENT_VALUES)
 def test_mul_non_element_raises_type_error(make_element, other):
-    with pytest.raises(TypeError, match="unsupported operand type"):
+    # нюанс: __mul__ для чужого типа делегирует `other * self`, поэтому текст
+    # сообщения формирует интерпретатор (для str/list/tuple он отличается)
+    with pytest.raises(TypeError):
         make_element(5, 2) * other
 
 
@@ -1259,14 +1242,6 @@ def test_mul_non_element_raises_type_error(make_element, other):
 def test_int_times_element_raises_type_error(make_element, other):
     with pytest.raises(TypeError):
         other * make_element(5, 2)
-
-
-@pytest.mark.parametrize("p, value", [
-    (5, 1), (7, 2), (11, 3), (13, 4), (101, 5),
-])
-def test_mul_with_subclass_raises_type_error(p, value):
-    with pytest.raises(TypeError, match="unsupported operand type"):
-        F_pElement(p, value) * SubElement(p, value)
 
 
 @pytest.mark.parametrize("p, v1, v2", [
@@ -1318,8 +1293,8 @@ def test_pow_positive_exponent(make_element, p, value, exp, expected):
 @pytest.mark.parametrize("p, value", [
     (5, 0), (5, 3), (7, 6), (11, 0), (13, 12), (101, 1),
 ])
-def test_pow_zero_exponent_is_unit(make_element, p, value):
-    assert make_element(p, value) ** 0 == F_pElement.unit(p)
+def test_pow_zero_exponent_is_one(make_element, p, value):
+    assert make_element(p, value) ** 0 == F_pElement.one(p)
 
 
 @pytest.mark.parametrize("p, value, expected", [
@@ -1353,23 +1328,22 @@ def test_pow_zero_base_negative_exponent_raises_value_error(make_element, p):
         make_element(p, 0) ** -1
 
 
-@pytest.mark.parametrize("exp", [2.0, 1.5, "2", None, [2], SubElement(5, 2)])
+@pytest.mark.parametrize("exp", [2.0, 1.5, "2", None, [2], {2}])
 def test_pow_non_int_exponent_raises_type_error(make_element, exp):
     with pytest.raises(TypeError, match="unsupported operand type"):
         make_element(5, 2) ** exp
 
 
-@pytest.mark.parametrize("exp", [True, False])
-def test_pow_bool_exponent_raises_type_error(make_element, exp):
-    # нюанс: type(exp) is not int -> bool не принимается
-    with pytest.raises(TypeError, match="unsupported operand type"):
-        make_element(5, 2) ** exp
+@pytest.mark.parametrize("exp, expected", [(True, 2), (False, 1)])
+def test_pow_bool_exponent_is_accepted_as_int(make_element, exp, expected):
+    # нюанс: проверка через isinstance(exp, int), а bool — подкласс int
+    assert make_element(5, 2) ** exp == make_element(5, expected)
 
 
 @pytest.mark.parametrize("p", PRIMES)
 def test_fermat_little_theorem(make_element, p):
     for value in range(1, min(p, 10)):
-        assert make_element(p, value) ** (p - 1) == F_pElement.unit(p)
+        assert make_element(p, value) ** (p - 1) == F_pElement.one(p)
 
 
 @pytest.mark.parametrize("p", PRIMES)
@@ -1478,10 +1452,10 @@ def test_invert_zero_object_raises_zero_division_error(p):
 @pytest.mark.parametrize("p, value", [
     (5, 2), (7, 3), (11, 7), (13, 5), (101, 17),
 ])
-def test_element_times_its_inverse_is_unit(make_element, p, value):
+def test_element_times_its_inverse_is_one(make_element, p, value):
     el = make_element(p, value)
-    assert el * ~el == F_pElement.unit(p)
-    assert ~el * el == F_pElement.unit(p)
+    assert el * ~el == F_pElement.one(p)
+    assert ~el * el == F_pElement.one(p)
 
 
 @pytest.mark.parametrize("p, value", [
@@ -1493,8 +1467,8 @@ def test_double_invert_returns_original_element(make_element, p, value):
 
 
 @pytest.mark.parametrize("p", PRIMES)
-def test_invert_of_unit_is_unit(p):
-    assert ~F_pElement.unit(p) == F_pElement.unit(p)
+def test_invert_of_one_is_one(p):
+    assert ~F_pElement.one(p) == F_pElement.one(p)
 
 
 @pytest.mark.parametrize("p, v1, v2", [
@@ -1548,9 +1522,9 @@ def test_truediv_value(make_element, p, v1, v2, expected):
 @pytest.mark.parametrize("p, value", [
     (5, 1), (5, 4), (7, 3), (11, 6), (13, 9), (101, 42),
 ])
-def test_truediv_by_self_is_unit(make_element, p, value):
+def test_truediv_by_self_is_one(make_element, p, value):
     el = make_element(p, value)
-    assert el / el == F_pElement.unit(p)
+    assert el / el == F_pElement.one(p)
 
 
 @pytest.mark.parametrize("p, value", [
@@ -1616,14 +1590,6 @@ def test_int_divided_by_element_raises_type_error(make_element, other):
         other / make_element(5, 1)
 
 
-@pytest.mark.parametrize("p, value", [
-    (5, 1), (7, 2), (11, 3), (13, 4), (101, 5),
-])
-def test_truediv_with_subclass_raises_type_error(p, value):
-    with pytest.raises(TypeError, match="unsupported operand type"):
-        F_pElement(p, value) / SubElement(p, value)
-
-
 @pytest.mark.parametrize("p, v1, v2", [
     (5, 3, 2), (7, 4, 3), (11, 6, 5), (13, 8, 7), (101, 20, 30),
 ])
@@ -1642,18 +1608,83 @@ def test_truediv_returns_new_element_and_does_not_mutate(make_element, p, v1, v2
 # ===========================================================================
 
 @pytest.mark.parametrize("p, value", [
-    (5, 0), (7, 0), (2, 0), (11, 0), (13, 0),
+    (5, 0), (7, 0), (2, 0), (11, 0), (13, 0), (101, 0),
 ])
-def test_zero_element_is_truthy(make_element, p, value):
-    # __bool__ не определён -> даже ноль поля истинен
-    assert bool(make_element(p, value)) is True
+def test_zero_element_is_falsy(make_element, p, value):
+    # __bool__ возвращает self.value != 0
+    assert bool(make_element(p, value)) is False
+    assert not make_element(p, value)
+
+
+@pytest.mark.parametrize("p", PRIMES)
+def test_zero_constructor_is_falsy(p):
+    assert bool(F_pElement.zero(p)) is False
+    assert not F_pElement.zero(p)
 
 
 @pytest.mark.parametrize("p, value", [
-    (5, 0), (7, 1), (11, 5), (13, 12), (101, 100),
+    (5, 1), (7, 6), (2, 1), (11, 5), (13, 12), (101, 100),
 ])
 def test_nonzero_element_is_truthy(make_element, p, value):
     assert bool(make_element(p, value)) is True
+    assert make_element(p, value)
+
+
+@pytest.mark.parametrize("p", PRIMES)
+def test_one_constructor_is_truthy(p):
+    assert bool(F_pElement.one(p)) is True
+    assert F_pElement.one(p)
+
+
+@pytest.mark.parametrize("p, value", [
+    (5, 5), (7, 7), (11, 22), (13, -13), (101, 202), (2, 4),
+])
+def test_element_reduced_to_zero_is_falsy(make_element, p, value):
+    # значение приводится по модулю, поэтому кратные p дают ноль поля
+    el = make_element(p, value)
+    assert el == F_pElement.zero(p)
+    assert bool(el) is False
+
+
+@pytest.mark.parametrize("p, value", [
+    (5, 3), (7, 2), (11, 9), (13, 4), (101, 8),
+])
+def test_bool_of_unary_and_binary_operations(make_element, p, value):
+    el = make_element(p, value)
+    assert bool(-el) is True
+    assert bool(+el) is True
+    assert bool(el - el) is False
+    assert bool(el * F_pElement.zero(p)) is False
+    assert bool(el * F_pElement.one(p)) is True
+
+
+@pytest.mark.parametrize("p, value", [
+    (5, 2), (7, 3), (11, 4), (13, 5), (101, 6),
+])
+def test_bool_of_inverse_and_power(make_element, p, value):
+    el = make_element(p, value)
+    assert bool(~el) is True
+    assert bool(el ** 0) is True
+    assert bool(el ** 3) is not (el ** 3 == F_pElement.zero(p))
+    assert bool(F_pElement.zero(p) ** 2) is False
+
+
+@pytest.mark.parametrize("p, value", [
+    (5, 2), (7, 3), (11, 4), (13, 5), (101, 6),
+])
+def test_bool_is_used_in_conditional(make_element, p, value):
+    el = make_element(p, value)
+    assert ("nonzero" if el else "zero") == "nonzero"
+    assert ("nonzero" if F_pElement.zero(p) else "zero") == "zero"
+
+
+@pytest.mark.parametrize("p, value", [
+    (5, 2), (7, 3), (11, 4), (13, 5), (101, 6),
+])
+def test_bool_agrees_with_comparison_to_zero(make_element, p, value):
+    el = make_element(p, value)
+    assert bool(el) is (el != F_pElement.zero(p))
+    assert bool(F_pElement.zero(p)) is (F_pElement.zero(p) != F_pElement.zero(p))
 
 
 @pytest.mark.parametrize("p, value", [
@@ -1748,9 +1779,9 @@ def test_multiplicative_group_laws(prime):
     limit = min(p, 12)
     for value in range(1, limit):
         a = F_pElement(p, value)
-        assert a * ~a == F_pElement.unit(p)
-        assert ~a * a == F_pElement.unit(p)
-        assert a / a == F_pElement.unit(p)
+        assert a * ~a == F_pElement.one(p)
+        assert ~a * a == F_pElement.one(p)
+        assert a / a == F_pElement.one(p)
         assert ~(~a) == a
 
 
@@ -1774,3 +1805,119 @@ def test_no_zero_divisors(prime):
     for v1 in range(1, limit):
         for v2 in range(1, limit):
             assert F_pElement(p, v1) * F_pElement(p, v2) != F_pElement.zero(p)
+
+
+# ===========================================================================
+# 17. Тексты сообщений об ошибках
+# ===========================================================================
+
+@pytest.mark.parametrize("p1, p2", [
+    (5, 7), (2, 3), (7, 11), (5, 101), (13, 3), (11, 13),
+])
+def test_add_error_message_mentions_both_fields(make_element, p1, p2):
+    with pytest.raises(TypeError) as exc_info:
+        make_element(p1, 1) + make_element(p2, 1)
+    message = str(exc_info.value)
+    assert "cannot + with two elements in different fields" in message
+    assert f"F_{p1} and F_{p2}" in message
+
+
+@pytest.mark.parametrize("p1, p2", [
+    (5, 7), (2, 3), (7, 11), (5, 101), (13, 3), (11, 13),
+])
+def test_sub_error_message_mentions_both_fields(make_element, p1, p2):
+    with pytest.raises(TypeError) as exc_info:
+        make_element(p1, 1) - make_element(p2, 1)
+    message = str(exc_info.value)
+    assert "cannot - with two elements in different fields" in message
+    assert f"F_{p1} and F_{p2}" in message
+
+
+@pytest.mark.parametrize("p1, p2", [
+    (5, 7), (2, 3), (7, 11), (5, 101), (13, 3), (11, 13),
+])
+def test_mul_error_message_mentions_both_fields(make_element, p1, p2):
+    with pytest.raises(TypeError) as exc_info:
+        make_element(p1, 1) * make_element(p2, 1)
+    message = str(exc_info.value)
+    assert "cannot * with two elements in different fields" in message
+    assert f"F_{p1} and F_{p2}" in message
+
+
+@pytest.mark.parametrize("p1, p2", [
+    (5, 7), (2, 3), (7, 11), (5, 101), (13, 3), (11, 13),
+])
+def test_div_error_message_mentions_both_fields(make_element, p1, p2):
+    with pytest.raises(TypeError) as exc_info:
+        make_element(p1, 1) / make_element(p2, 1)
+    message = str(exc_info.value)
+    assert "cannot / with two elements in different fields" in message
+    assert f"F_{p1} and F_{p2}" in message
+
+
+@pytest.mark.parametrize("p, value", [
+    (5, 1), (7, 2), (11, 3), (13, 4), (101, 5),
+])
+def test_wrong_type_messages_mention_operand_types(make_element, p, value):
+    el = make_element(p, value)
+    cases = (
+        ("+", lambda: el + 3),
+        ("-", lambda: el - 3),
+        ("/", lambda: el / 3),
+    )
+    for symbol, expression in cases:
+        with pytest.raises(TypeError) as exc_info:
+            expression()
+        message = str(exc_info.value)
+        assert f"unsupported operand type(s) for {symbol}" in message
+        assert "'F_pElement' and 'int'" in message
+
+
+@pytest.mark.parametrize("p, value", [
+    (5, 1), (7, 2), (11, 3), (13, 4), (101, 5),
+])
+def test_mul_by_int_delegates_to_other_operand(make_element, p, value):
+    # нюанс: __mul__ выполняет `other * self`, поэтому сообщение об ошибке
+    # формирует интерпретатор и порядок типов в нём обратный
+    el = make_element(p, value)
+    for expression in (lambda: el * 3, lambda: 3 * el):
+        with pytest.raises(TypeError) as exc_info:
+            expression()
+        assert "unsupported operand type(s) for *" in str(exc_info.value)
+
+
+@pytest.mark.parametrize("p, value, other", [
+    (5, 1, "x"), (7, 2, None), (11, 3, 2.5), (13, 4, [1]), (101, 5, (1,)),
+])
+def test_mul_delegation_to_other_types_raises_type_error(
+        make_element, p, value, other):
+    with pytest.raises(TypeError):
+        make_element(p, value) * other
+
+
+@pytest.mark.parametrize("exp", [2.0, "2", None, [2], 3.5])
+def test_pow_error_message_mentions_operand_types(make_element, exp):
+    with pytest.raises(TypeError) as exc_info:
+        make_element(5, 2) ** exp
+    message = str(exc_info.value)
+    assert "unsupported operand type(s) for ** or pow()" in message
+    assert f"'F_pElement' and '{exp.__class__.__name__}'" in message
+
+
+@pytest.mark.parametrize("p", [5, 7, 11, 13, 101])
+def test_zero_division_message_mentions_field_order(make_element, p):
+    for expression in (lambda: ~make_element(p, 0),
+                       lambda: make_element(p, 1) / make_element(p, 0)):
+        with pytest.raises(ZeroDivisionError) as exc_info:
+            expression()
+        assert f"cannot divide by zero in the field of order {p}" in str(exc_info.value)
+
+
+@pytest.mark.parametrize("p", NON_PRIMES[:6])
+def test_prime_check_message_mentions_value(p):
+    for constructor in (lambda: F_pElement(p),
+                        lambda: F_pElement.random(p),
+                        lambda: F_pElement.randomGenerating(p)):
+        with pytest.raises(ValueError) as exc_info:
+            constructor()
+        assert f"p must be prime, cannot be {p}" == str(exc_info.value)

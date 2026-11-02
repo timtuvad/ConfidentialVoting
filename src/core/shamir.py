@@ -6,21 +6,36 @@ from src.core.algebra.polynomial import F_pPolynomial
 class ShamirCryptography:
 
     # TODO : добавить подробные комментарии
-    # TODO : добавить необходимые проверки
-    def __init__(self, t: int, person_id: F_pElement, voice: F_pElement):
-        self.__t = t
+    def __init__(self, threshold: int, person_id: F_pElement,
+                 secret: F_pElement):
+        if not isinstance(threshold, int):
+            raise TypeError("threshold must be an integer, not "
+                            f"'{threshold.__class__.__name__}'")
+        if not isinstance(person_id, F_pElement):
+            raise TypeError("person_id must be an instance of F_pElement, "
+                            f"not '{person_id.__class__.__name__}'")
+        if not isinstance(secret, F_pElement):
+            raise TypeError("secret must be an instance of F_pElement, not "
+                            f"'{secret.__class__.__name__}'")
+        if threshold <= 0:
+            raise ValueError("threshold must be positive")
+        if person_id.p != secret.p:
+            raise ValueError("person_id and secret must be from "
+                             "the same field")
+        self.__threshold = threshold
         self.__person_id = person_id
-        self.__voice = voice
+        self.__secret = secret
         self.__personal_polynomial = F_pPolynomial.random(self.__person_id.p,
-                        degree_bound=self.__t-1, least_coefficient=self.__voice)
+                                            degree_bound=self.__threshold-1,
+                                            least_coefficient=self.__secret)
 
     @property
     def person_id(self) -> F_pElement:
         return self.__person_id
 
     @property
-    def voice(self) -> F_pElement:
-        return self.__voice
+    def secret(self) -> F_pElement:
+        return self.__secret
 
     @property
     def personal_polynomial(self) -> F_pPolynomial:

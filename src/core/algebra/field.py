@@ -22,7 +22,7 @@ class F_pElement:
         return F_pElement(p, value=0)
 
     @staticmethod
-    def unit(p: int):
+    def one(p: int):
         return F_pElement(p, value=1)
 
     @staticmethod
@@ -34,7 +34,7 @@ class F_pElement:
     def randomGenerating(p: int):
         F_pElement.__check_is_prime(p)
         if p == 2:
-            return F_pElement.unit(p)
+            return F_pElement.one(p)
         return F_pElement(p, value=randrange(2, p))
 
     def __str__(self):
@@ -44,7 +44,7 @@ class F_pElement:
         return f"F_pElement(p={self.__p}, value={self.__value})"
 
     def __eq__(self, other):
-        if type(self) is not type(other):
+        if not isinstance(other, F_pElement):
             return False
         return self.__p == other.__p and self.__value == other.__value
     
@@ -69,8 +69,11 @@ class F_pElement:
         return self + (-other)
 
     def __mul__(self, other):
-        self.__check_types(other, "*")
-        return F_pElement(self.__p, (self.__value * other.__value) % self.__p)
+        if not isinstance(other, F_pElement):
+            return other * self
+        else:
+            self.__check_types(other, "*")
+            return F_pElement(self.__p, (self.__value * other.__value) % self.__p)
 
     def __pow__(self, exp: int):
         self.__check_types(exp, "** or pow()", int)
@@ -86,16 +89,20 @@ class F_pElement:
         self.__check_types(other, "/")
         return self * (~other)
 
+    def __bool__(self) -> bool:
+        return self.__value != 0
+
     @staticmethod
     def __check_is_prime(p: int):
         if not is_prime(p):
             raise ValueError(f"p must be prime, cannot be {p}")
 
     def __check_types(self, other, operation: str, needed: type | None = None):
-        if type(other) is not (needed or type(self)):
+        if not isinstance(other, needed or type(self)):
             raise TypeError(f"unsupported operand type(s) for {operation}: "
                f"'{self.__class__.__name__}' and '{other.__class__.__name__}'")
         if needed is None:
             if self.__p != other.__p:
                 raise TypeError(f"cannot {operation} with two elements in "
-                                "different fields")
+                                "different fields: "
+                                f"F_{self.__p} and F_{other.__p}")
