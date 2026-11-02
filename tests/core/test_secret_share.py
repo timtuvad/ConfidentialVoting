@@ -1,4 +1,4 @@
-"""Тесты модуля src/core/secret_share.py — класс SecretShare (доля секрета).
+"""Тесты модуля src/core/secret_share.py — класс Share (доля секрета).
 
 Стиль написания — как в tests/core/test_utils.py: фикстуры + параметризация pytest.
 Проверки выполняются через публичный API (свойства x / value / p, ==, !=,
@@ -10,7 +10,7 @@ hash(), str(), repr(), арифметические операторы) — бе
     * x, value, p       — свойства только для чтения;
     * __eq__, __ne__    — сравнение по точке и значению (через isinstance);
     * __hash__          — хешируемость, согласованность с __eq__;
-    * __str__, __repr__ — "f(x)=value" и "SecretShare(x, value)";
+    * __str__, __repr__ — "f(x)=value" и "Share(x, value)";
     * __pos__, __neg__  — унарные операции;
     * __add__, __sub__, __mul__, __truediv__ — арифметика долей в одной точке,
                           TypeError для разных x и для чужих типов;
@@ -39,7 +39,7 @@ F_pElement, иначе TypeError с именем переданного типа
 
 import pytest
 
-from src import F_pElement, F_pPolynomial, SecretShare
+from src import F_pElement, F_pPolynomial, Share
 
 # ---------------------------------------------------------------------------
 # Общие наборы данных
@@ -80,9 +80,9 @@ def make_element():
 
 @pytest.fixture
 def make_share():
-    """Фабрика долей: make_share(p, x, value) -> SecretShare."""
+    """Фабрика долей: make_share(p, x, value) -> Share."""
     def _make(p, x, value):
-        return SecretShare(F_pElement(p, x), F_pElement(p, value))
+        return Share(F_pElement(p, x), F_pElement(p, value))
     return _make
 
 
@@ -128,15 +128,15 @@ def share5_other_x(make_share):
 ])
 def test_init_stores_point_and_value(make_share, p, x, value):
     share = make_share(p, x, value)
-    assert isinstance(share, SecretShare)
-    assert type(share) is SecretShare
+    assert isinstance(share, Share)
+    assert type(share) is Share
     assert share.x == F_pElement(p, x)
     assert share.value == F_pElement(p, value)
 
 
 @pytest.mark.parametrize("p", PRIMES)
 def test_init_with_zero_point_and_zero_value(make_element, p):
-    share = SecretShare(F_pElement.zero(p), F_pElement.zero(p))
+    share = Share(F_pElement.zero(p), F_pElement.zero(p))
     assert share.x == F_pElement.zero(p)
     assert share.value == F_pElement.zero(p)
     assert share.p == p
@@ -156,7 +156,7 @@ def test_init_accepts_unreduced_values(make_share, p, x, value):
     (5, 1, 2), (7, 3, 4), (11, 5, 6), (13, 7, 8), (101, 9, 10),
 ])
 def test_init_accepts_element_objects_directly(p, x, value):
-    share = SecretShare(F_pElement(p, x), F_pElement(p, value))
+    share = Share(F_pElement(p, x), F_pElement(p, value))
     assert share.x.value == x % p
     assert share.value.value == value % p
     assert share.p == p
@@ -168,7 +168,7 @@ def test_init_accepts_element_objects_directly(p, x, value):
 def test_init_does_not_copy_elements(make_element, p, x, value):
     point = make_element(p, x)
     polynomial_value = make_element(p, value)
-    share = SecretShare(point, polynomial_value)
+    share = Share(point, polynomial_value)
     assert share.x is point
     assert share.value is polynomial_value
 
@@ -180,7 +180,7 @@ def test_init_does_not_copy_elements(make_element, p, x, value):
 @pytest.mark.parametrize("p1, p2", FIELD_PAIRS)
 def test_init_different_fields_raises_type_error(make_element, p1, p2):
     with pytest.raises(TypeError, match="x and value must be in the same field"):
-        SecretShare(make_element(p1, 1), make_element(p2, 1))
+        Share(make_element(p1, 1), make_element(p2, 1))
 
 
 @pytest.mark.parametrize("p1, p2", FIELD_PAIRS)
@@ -188,7 +188,7 @@ def test_init_different_fields_message_is_type_error_not_value_error(
         make_element, p1, p2):
     # нюанс: сообщение про поле, но тип исключения — TypeError
     with pytest.raises(TypeError):
-        SecretShare(make_element(p1, 0), make_element(p2, 0))
+        Share(make_element(p1, 0), make_element(p2, 0))
 
 
 @pytest.mark.parametrize("x, value", [
@@ -196,7 +196,7 @@ def test_init_different_fields_message_is_type_error_not_value_error(
 ])
 def test_init_non_element_arguments_raise_type_error(x, value):
     with pytest.raises(TypeError, match="x must be an instance of F_pElement"):
-        SecretShare(x, value)
+        Share(x, value)
 
 
 @pytest.mark.parametrize("x, value", [
@@ -209,7 +209,7 @@ def test_init_non_element_arguments_raise_type_error(x, value):
 def test_init_invalid_x_is_reported_before_value(x, value):
     # нюанс: сначала проверяется x, поэтому сообщение всегда про x
     with pytest.raises(TypeError, match="x must be an instance of F_pElement"):
-        SecretShare(x, value)
+        Share(x, value)
 
 
 @pytest.mark.parametrize("p, x", [
@@ -220,7 +220,7 @@ def test_init_rejects_polynomials(make_poly, p, x):
     with pytest.raises(
             TypeError,
             match="x must be an instance of F_pElement, not 'F_pPolynomial'"):
-        SecretShare(make_poly(p, [x]), make_poly(p, [x + 1]))
+        Share(make_poly(p, [x]), make_poly(p, [x + 1]))
 
 
 @pytest.mark.parametrize("x, value, message", [
@@ -235,22 +235,22 @@ def test_init_rejects_polynomials(make_poly, p, x):
 ])
 def test_init_type_error_messages_mention_class_name(x, value, message):
     with pytest.raises(TypeError) as exc_info:
-        SecretShare(x, value)
+        Share(x, value)
     assert str(exc_info.value) == message
 
 
 @pytest.mark.parametrize("p, other_p", FIELD_PAIRS)
 def test_init_type_check_precedes_field_check(p, other_p):
     with pytest.raises(TypeError, match="x must be an instance of F_pElement"):
-        SecretShare(1, F_pElement(other_p, 1))
+        Share(1, F_pElement(other_p, 1))
 
 
 @pytest.mark.parametrize("p", PRIMES)
 def test_init_requires_both_arguments(p):
     with pytest.raises(TypeError):
-        SecretShare(F_pElement(p, 1))
+        Share(F_pElement(p, 1))
     with pytest.raises(TypeError):
-        SecretShare()
+        Share()
 
 
 # ===========================================================================
@@ -439,11 +439,11 @@ def test_str_format(make_share, p, x, value, expected):
 
 
 @pytest.mark.parametrize("p, x, value, expected", [
-    (5, 1, 2, "SecretShare((1 mod 5), (2 mod 5))"),
-    (7, 0, 6, "SecretShare((0 mod 7), (6 mod 7))"),
-    (11, 10, 0, "SecretShare((10 mod 11), (0 mod 11))"),
-    (13, 3, 12, "SecretShare((3 mod 13), (12 mod 13))"),
-    (2, 1, 1, "SecretShare((1 mod 2), (1 mod 2))"),
+    (5, 1, 2, "Share((1 mod 5), (2 mod 5))"),
+    (7, 0, 6, "Share((0 mod 7), (6 mod 7))"),
+    (11, 10, 0, "Share((10 mod 11), (0 mod 11))"),
+    (13, 3, 12, "Share((3 mod 13), (12 mod 13))"),
+    (2, 1, 1, "Share((1 mod 2), (1 mod 2))"),
 ])
 def test_repr_format(make_share, p, x, value, expected):
     assert repr(make_share(p, x, value)) == expected
@@ -455,7 +455,7 @@ def test_repr_format(make_share, p, x, value, expected):
 def test_str_and_repr_are_consistent_with_properties(make_share, p, x, value):
     share = make_share(p, x, value)
     assert str(share) == f"f({share.x})={share.value}"
-    assert repr(share) == f"SecretShare({share.x}, {share.value})"
+    assert repr(share) == f"Share({share.x}, {share.value})"
 
 
 @pytest.mark.parametrize("p, x, value", [
@@ -464,7 +464,7 @@ def test_str_and_repr_are_consistent_with_properties(make_share, p, x, value):
 def test_repr_differs_from_str(make_share, p, x, value):
     share = make_share(p, x, value)
     assert repr(share) != str(share)
-    assert repr(share).startswith("SecretShare(")
+    assert repr(share).startswith("Share(")
 
 
 @pytest.mark.parametrize("p, x, value", [
@@ -893,7 +893,7 @@ def test_pow_adds_exponents(make_share, p, x, value, e1, e2):
 ])
 def test_pow_returns_secret_share(make_share, p, x, value):
     result = make_share(p, x, value) ** 4
-    assert isinstance(result, SecretShare)
+    assert isinstance(result, Share)
     assert result.p == p
 
 
@@ -908,7 +908,7 @@ def test_pow_returns_secret_share(make_share, p, x, value):
 def test_share_from_polynomial_matches_manual_share(make_poly, p, coeffs, x):
     poly = make_poly(p, coeffs)
     point = F_pElement(p, x)
-    assert poly.share_at(point) == SecretShare(point, poly(point))
+    assert poly.share_at(point) == Share(point, poly(point))
 
 
 @pytest.mark.parametrize("p, coeffs, xs", [
@@ -952,7 +952,7 @@ def test_share_str_and_repr_from_polynomial(make_poly, p, coeffs, x):
     point = F_pElement(p, x)
     share = poly.share_at(point)
     assert str(share) == f"f({point})={poly(point)}"
-    assert repr(share) == f"SecretShare({point}, {poly(point)})"
+    assert repr(share) == f"Share({point}, {poly(point)})"
 
 
 @pytest.mark.parametrize("p, a, b, x", [
@@ -1074,4 +1074,4 @@ def test_negation_of_share_from_polynomial(prime):
     negated = -share
     assert negated.x == share.x
     assert negated.value == -share.value
-    assert negated == SecretShare(point, -poly(point))
+    assert negated == Share(point, -poly(point))

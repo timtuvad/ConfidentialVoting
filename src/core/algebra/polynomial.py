@@ -1,7 +1,7 @@
 from typing import List
 from ..utils import is_prime
 from .field import F_pElement
-from ..secret_share import SecretShare
+from ..share import Share
 
 class F_pPolynomial:
 
@@ -50,8 +50,8 @@ class F_pPolynomial:
                             for _ in range(degree_bound)])
         return F_pPolynomial(p, coefficients=coefficients)
 
-    def share_at(self, x: F_pElement) -> SecretShare:
-        return SecretShare(x, self(x))
+    def share_at(self, x: F_pElement) -> Share:
+        return Share(x, self(x))
 
     def __getitem__(self, index: int) -> F_pElement:
         if not isinstance(index, int):

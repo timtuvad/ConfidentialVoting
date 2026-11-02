@@ -2,7 +2,7 @@ from src.core.algebra.field import F_pElement
 
 # Известное значение многочлена f(x) = value
 # Сам многочлен f неизвестен
-class SecretShare:
+class Share:
 
     def __init__(self, x: F_pElement, value: F_pElement):
         if not isinstance(x, F_pElement):
@@ -29,7 +29,7 @@ class SecretShare:
         return self.__x.p
 
     def __eq__(self, other) -> bool:
-        if not isinstance(other, SecretShare):
+        if not isinstance(other, Share):
             return False
         return (self.__x == other.__x
                 and self.__value == other.__value)
@@ -44,38 +44,38 @@ class SecretShare:
         return f"f({self.__x})={self.__value}"
 
     def __repr__(self):
-        return f"SecretShare({self.__x}, {self.__value})"
+        return f"Share({self.__x}, {self.__value})"
 
     def __pos__(self):
         return self
     
     def __neg__(self):
-        return SecretShare(self.__x, -self.__value)
+        return Share(self.__x, -self.__value)
 
     def __add__(self, other):
         self.__check_types(other, "+")
-        return SecretShare(self.__x, self.__value + other.__value)
+        return Share(self.__x, self.__value + other.__value)
 
     def __sub__(self, other):
         self.__check_types(other, "-")
-        return SecretShare(self.__x, self.__value - other.__value)
+        return Share(self.__x, self.__value - other.__value)
 
     def __mul__(self, other):
         self.__check_types(other, "*")
-        return SecretShare(self.__x, self.__value * other.__value)
+        return Share(self.__x, self.__value * other.__value)
 
     def __truediv__(self, other):
         self.__check_types(other, "/")
-        return SecretShare(self.__x, self.__value / other.__value)
+        return Share(self.__x, self.__value / other.__value)
 
     def __pow__(self, exp: int):
-        return SecretShare(self.__x, self.__value ** exp)
+        return Share(self.__x, self.__value ** exp)
 
     def __check_types(self, other, operation: str):
-        if not isinstance(other, SecretShare):
+        if not isinstance(other, Share):
             raise TypeError(f"unsupported operand type(s) for {operation}: "
                             f"'{self.__class__.__name__}' and "
                             f"'{other.__class__.__name__}'")
         if self.__x != other.__x:
-            raise TypeError(f"cannot {operation} with two secret shares with "
+            raise TypeError(f"cannot {operation} with two shares with "
                             f"different x values: {self} and {other}")

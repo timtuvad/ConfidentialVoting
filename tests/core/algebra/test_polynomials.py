@@ -22,7 +22,7 @@ str()/str_format(), индексация poly[i], свойства p / degree) �
     * random         — случайный многочлен заданной степени (с фиксированным
                        свободным членом least_coefficient или без него);
     * __call__       — вычисление значения многочлена в точке поля;
-    * share_at       — доля секрета SecretShare в точке x;
+    * share_at       — доля секрета Share в точке x;
     * служебные нюансы — отсутствие степени, целочисленного деления, %, @,
       len(), abs() и ~; неизменяемость операндов и переданного списка.
 
@@ -53,13 +53,13 @@ str()/str_format(), индексация poly[i], свойства p / degree) �
       в том числе для нулевого многочлена; элемент другого поля даёт TypeError
       из F_pElement.__mul__ ("cannot * with two elements in different fields").
 
-Доля секрета SecretShare (src/core/secret_share.py), возвращаемая share_at:
+Доля секрета Share (src/core/secret_share.py), возвращаемая share_at:
     * публичные свойства x, value и p — точка, значение многочлена в ней и поле;
     * __eq__/__ne__ с проверкой isinstance и __hash__ по паре (x, value),
       поэтому доли можно сравнивать, класть в множества и использовать как ключи;
     * конструктор бросает TypeError("x and value must be in the same field"),
       если точка и значение принадлежат разным полям;
-    * str() -> "f(x)=value", repr() -> "SecretShare(x, value)".
+    * str() -> "f(x)=value", repr() -> "Share(x, value)".
 
 Строковое представление строится через __getitem__, поэтому выход за степень
 даёт нулевые слагаемые, а str_format(отрицательное) — пустую строку.
@@ -77,7 +77,7 @@ str()/str_format(), индексация poly[i], свойства p / degree) �
 
 import pytest
 
-from src import F_pElement, F_pPolynomial, SecretShare
+from src import F_pElement, F_pPolynomial, Share
 
 # ---------------------------------------------------------------------------
 # Общие наборы данных
@@ -2044,7 +2044,7 @@ def test_call_uses_indexed_coefficients(make_poly, p, coeffs):
 
 
 # ===========================================================================
-# 15. share_at(x) — доля секрета SecretShare в точке x
+# 15. share_at(x) — доля секрета Share в точке x
 # ===========================================================================
 
 @pytest.mark.parametrize("p, coeffs, x", [
@@ -2057,7 +2057,7 @@ def test_call_uses_indexed_coefficients(make_poly, p, coeffs):
 ])
 def test_share_at_returns_secret_share(make_poly, p, coeffs, x):
     share = make_poly(p, coeffs).share_at(F_pElement(p, x))
-    assert isinstance(share, SecretShare)
+    assert isinstance(share, Share)
 
 
 @pytest.mark.parametrize("p, coeffs, x", [
@@ -2073,8 +2073,8 @@ def test_share_at_holds_polynomial_value(make_poly, p, coeffs, x):
     share = poly.share_at(point)
     assert share.x == point
     assert share.value == poly(point)
-    assert share == SecretShare(point, poly(point))
-    assert share != SecretShare(point, poly(point) + F_pElement.one(p))
+    assert share == Share(point, poly(point))
+    assert share != Share(point, poly(point) + F_pElement.one(p))
 
 
 @pytest.mark.parametrize("p, coeffs, x, expected_value", [
@@ -2086,7 +2086,7 @@ def test_share_at_holds_polynomial_value(make_poly, p, coeffs, x):
 ])
 def test_share_at_value_matches_expected(make_poly, p, coeffs, x, expected_value):
     share = make_poly(p, coeffs).share_at(F_pElement(p, x))
-    assert share == SecretShare(F_pElement(p, x), F_pElement(p, expected_value))
+    assert share == Share(F_pElement(p, x), F_pElement(p, expected_value))
     assert share.x == F_pElement(p, x)
     assert share.value == F_pElement(p, expected_value)
 
@@ -2101,7 +2101,7 @@ def test_share_at_zero_returns_least_coefficient(prime):
     share = poly.share_at(zero)
     assert share.x == zero
     assert share.value == least
-    assert share == SecretShare(zero, least)
+    assert share == Share(zero, least)
 
 
 @pytest.mark.parametrize("p, coeffs", [
@@ -2158,10 +2158,10 @@ def test_share_at_of_zero_polynomial(prime):
     poly = F_pPolynomial(p)
     point = F_pElement.one(p)
     share = poly.share_at(point)
-    assert isinstance(share, SecretShare)
+    assert isinstance(share, Share)
     assert share.x == point
     assert share.value == F_pElement.zero(p)
-    assert share == SecretShare(point, F_pElement.zero(p))
+    assert share == Share(point, F_pElement.zero(p))
 
 
 @pytest.mark.parametrize("p, value", [
@@ -2171,7 +2171,7 @@ def test_share_at_of_constant_polynomial_has_same_value(make_poly, p, value):
     poly = make_poly(p, [value])
     points = [F_pElement(p, v) for v in range(min(p, 4))]
     shares = [poly.share_at(point) for point in points]
-    expected = [SecretShare(point, F_pElement(p, value)) for point in points]
+    expected = [Share(point, F_pElement(p, value)) for point in points]
     assert shares == expected
 
 
@@ -2191,7 +2191,7 @@ def test_share_at_agrees_with_call(make_poly, p, coeffs):
     poly = make_poly(p, coeffs)
     for value in range(min(p, 5)):
         point = F_pElement(p, value)
-        assert poly.share_at(point) == SecretShare(point, poly(point))
+        assert poly.share_at(point) == Share(point, poly(point))
 
 
 @pytest.mark.parametrize("p, coeffs", [
@@ -2229,7 +2229,7 @@ def test_share_at_string_representations(make_poly, p, coeffs, x):
     point = F_pElement(p, x)
     share = poly.share_at(point)
     assert str(share) == f"f({point})={poly(point)}"
-    assert repr(share) == f"SecretShare({point}, {poly(point)})"
+    assert repr(share) == f"Share({point}, {poly(point)})"
 
 
 @pytest.mark.parametrize("p, coeffs", [

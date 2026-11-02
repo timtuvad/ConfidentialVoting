@@ -1,7 +1,8 @@
 from typing import List
-from src.core.secret_share import SecretShare
+from src.core.share import Share
 from src.core.algebra.field import F_pElement
 from src.core.algebra.polynomial import F_pPolynomial
+from src.core.algebra.interpolation import LagrangeInterpolation
 
 class ShamirCryptography:
 
@@ -22,6 +23,7 @@ class ShamirCryptography:
         if person_id.p != secret.p:
             raise ValueError("person_id and secret must be from "
                              "the same field")
+        
         self.__threshold = threshold
         self.__person_id = person_id
         self.__secret = secret
@@ -29,6 +31,7 @@ class ShamirCryptography:
                                             degree_bound=self.__threshold-1,
                                             least_coefficient=self.__secret)
 
+    
     @property
     def person_id(self) -> F_pElement:
         return self.__person_id
@@ -41,17 +44,21 @@ class ShamirCryptography:
     def personal_polynomial(self) -> F_pPolynomial:
         return self.__personal_polynomial
 
-    def share_part_with(self, other_id: F_pElement) -> SecretShare:
+    def share_part_with(self, other_id: F_pElement) -> Share:
         return self.__personal_polynomial.share_at(other_id)
 
     # TODO : написать подробный комментарий
-    # TODO : реализовать
     @staticmethod
-    def total_sum_at_participant(share_parts: List[SecretShare]) -> SecretShare:
-        raise NotImplementedError
+    def total_sum_at_participant(shares: List[Share]) -> Share:
+        x = shares[0].x
+        return sum(shares, start=Share(x, F_pElement.zero(x.p)))
 
     # TODO : написать подробный комментарий
-    # TODO : реализовать
     @staticmethod
-    def total_sum_at_zero(participants_shares: List[SecretShare]) -> F_pElement:
-        raise NotImplementedError
+    def sum_of_secrets(shares_of_sum: List[Share],
+                       threshold: int) -> F_pElement:
+        interpolation = LagrangeInterpolation(shares_of_sum)
+        if len(interpolation.shares) < threshold:
+            raise ValueError("not enough shares to sum secrets")
+        p = shares_of_sum[0].x.p
+        return interpolation(F_pElement.zero(p))

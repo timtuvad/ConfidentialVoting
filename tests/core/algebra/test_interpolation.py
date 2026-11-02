@@ -5,11 +5,11 @@
 вызов объекта как функции, ==, !=, repr(), bool()) — без обращения к приватным полям.
 
 Проверяемый функционал (на каждый элемент — не менее 5 тестов):
-    * __init__               — приём списка/кортежа долей SecretShare, проверка
+    * __init__               — приём списка/кортежа долей Share, проверка
                                непустоты, одинаковости поля, склейка дубликатов;
     * shares                 — список уникальных долей в порядке первого появления;
     * lagrange_polynomial    — многочлен Лагранжа, проходящий через все доли;
-    * __call__               — значение интерполянта в точке как SecretShare
+    * __call__               — значение интерполянта в точке как Share
                                (в том числе восстановление секрета в x = 0);
     * математические свойства — точность восстановления, единственность,
                                порядок долей не важен, пороговое свойство Шамира;
@@ -35,7 +35,7 @@ from itertools import combinations
 
 import pytest
 
-from src import F_pElement, F_pPolynomial, SecretShare
+from src import F_pElement, F_pPolynomial, Share
 from src.core.algebra.interpolation import LagrangeInterpolation
 
 # ---------------------------------------------------------------------------
@@ -56,7 +56,7 @@ NON_SHARE_VALUES = [0, 5, "x", None, 3.5, (1, 2), [1], object()]
 # ---------------------------------------------------------------------------
 
 def _shares_of(polynomial, xs):
-    """Доли многочлена в точках xs (список SecretShare)."""
+    """Доли многочлена в точках xs (список Share)."""
     return [polynomial.share_at(F_pElement(polynomial.p, x)) for x in xs]
 
 
@@ -86,9 +86,9 @@ def small_prime(request):
 
 @pytest.fixture
 def make_share():
-    """Фабрика долей: make_share(p, x, value) -> SecretShare."""
+    """Фабрика долей: make_share(p, x, value) -> Share."""
     def _make(p, x, value):
-        return SecretShare(F_pElement(p, x), F_pElement(p, value))
+        return Share(F_pElement(p, x), F_pElement(p, value))
     return _make
 
 
@@ -311,7 +311,7 @@ def test_shares_returns_list_of_secret_shares(make_poly, p, coeffs, xs):
     shares = _shares_of(make_poly(p, coeffs), xs)
     interpolation = LagrangeInterpolation(shares)
     assert isinstance(interpolation.shares, list)
-    assert all(isinstance(share, SecretShare) for share in interpolation.shares)
+    assert all(isinstance(share, Share) for share in interpolation.shares)
 
 
 @pytest.mark.parametrize("p, coeffs, xs", [
@@ -494,7 +494,7 @@ def test_extra_consistent_shares_do_not_change_polynomial(
 def test_call_returns_secret_share(make_poly, p, coeffs, xs, x):
     shares = _shares_of(make_poly(p, coeffs), xs)
     result = LagrangeInterpolation(shares)(F_pElement(p, x))
-    assert isinstance(result, SecretShare)
+    assert isinstance(result, Share)
     assert result.x == F_pElement(p, x)
     assert result.p == p
 
@@ -661,7 +661,7 @@ def test_interpolation_of_zero_polynomial(make_poly, p, coeffs):
 def test_interpolation_is_linear_in_values(make_poly, p, coeffs, xs):
     poly = make_poly(p, coeffs)
     shares = _shares_of(poly, xs)
-    doubled = [SecretShare(share.x, share.value + share.value)
+    doubled = [Share(share.x, share.value + share.value)
                for share in shares]
     first = LagrangeInterpolation(shares).lagrange_polynomial
     second = LagrangeInterpolation(doubled).lagrange_polynomial
