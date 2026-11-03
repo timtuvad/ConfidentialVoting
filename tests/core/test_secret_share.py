@@ -604,7 +604,10 @@ def test_add_of_opposite_shares_is_zero(make_share, p, x, value):
 ])
 def test_add_different_points_raises_type_error(make_share, p, x1, x2, value):
     with pytest.raises(TypeError,
-                       match="cannot \\+ with two secret shares with different x"):
+                       match="cannot \\+ with two shares with "
+                       "different x values: "
+                       f"f\\(\\({x1} mod {p}\\)\\)=\\({value} mod {p}\\) and "
+                       f"f\\(\\({x2} mod {p}\\)\\)=\\({value} mod {p}\\)"):
         make_share(p, x1, value) + make_share(p, x2, value)
 
 
@@ -678,7 +681,10 @@ def test_sub_is_anti_commutative(make_share, p, x, v1, v2):
 ])
 def test_sub_different_points_raises_type_error(make_share, p, x1, x2, value):
     with pytest.raises(TypeError,
-                       match="cannot - with two secret shares with different x"):
+                       match="cannot - with two shares with "
+                       "different x values: "
+                       f"f\\(\\({x1} mod {p}\\)\\)=\\({value} mod {p}\\) and "
+                       f"f\\(\\({x2} mod {p}\\)\\)=\\({value} mod {p}\\)"):
         make_share(p, x1, value) - make_share(p, x2, value)
 
 
