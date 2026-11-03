@@ -1,0 +1,2564 @@
+{
+  "meta": {
+    "n": 5,
+    "t": 3,
+    "p": 101,
+    "seed": 42,
+    "scenario": "honest"
+  },
+  "snapshots": [
+    {
+      "step": 1,
+      "phase": "setup",
+      "active": null,
+      "description": "Участники 1..5 выбрали v_i и многочлены f_i(x) степени ≤ t−1",
+      "new_deals": [],
+      "all_deals": [],
+      "votes": [
+        null,
+        1,
+        0,
+        1,
+        1,
+        0
+      ],
+      "polys": [
+        null,
+        [
+          1,
+          81,
+          14
+        ],
+        [
+          0,
+          3,
+          94
+        ],
+        [
+          1,
+          35,
+          31
+        ],
+        [
+          1,
+          28,
+          17
+        ],
+        [
+          0,
+          94,
+          13
+        ]
+      ],
+      "received": [
+        null,
+        {},
+        {},
+        {},
+        {},
+        {}
+      ],
+      "shares": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "published_senders": [],
+      "reconstructed": null,
+      "aggregate_F": null,
+      "checks": {
+        "I1": "ok",
+        "I2": "ok",
+        "I3": "pending",
+        "I4": "pending",
+        "I5": "pending",
+        "I6": "unknown",
+        "I7": "pending"
+      }
+    },
+    {
+      "step": 2,
+      "phase": "deal",
+      "active": 1,
+      "description": "Участник 1 рассылает f_1(j) остальным по защищённому каналу",
+      "new_deals": [
+        {
+          "sender": 1,
+          "receiver": 2,
+          "value": 17
+        },
+        {
+          "sender": 1,
+          "receiver": 3,
+          "value": 67
+        },
+        {
+          "sender": 1,
+          "receiver": 4,
+          "value": 44
+        },
+        {
+          "sender": 1,
+          "receiver": 5,
+          "value": 49
+        }
+      ],
+      "all_deals": [
+        {
+          "sender": 1,
+          "receiver": 2,
+          "value": 17
+        },
+        {
+          "sender": 1,
+          "receiver": 3,
+          "value": 67
+        },
+        {
+          "sender": 1,
+          "receiver": 4,
+          "value": 44
+        },
+        {
+          "sender": 1,
+          "receiver": 5,
+          "value": 49
+        }
+      ],
+      "votes": [
+        null,
+        1,
+        0,
+        1,
+        1,
+        0
+      ],
+      "polys": [
+        null,
+        [
+          1,
+          81,
+          14
+        ],
+        [
+          0,
+          3,
+          94
+        ],
+        [
+          1,
+          35,
+          31
+        ],
+        [
+          1,
+          28,
+          17
+        ],
+        [
+          0,
+          94,
+          13
+        ]
+      ],
+      "received": [
+        null,
+        {},
+        {
+          "1": 17
+        },
+        {
+          "1": 67
+        },
+        {
+          "1": 44
+        },
+        {
+          "1": 49
+        }
+      ],
+      "shares": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "published_senders": [],
+      "reconstructed": null,
+      "aggregate_F": null,
+      "checks": {
+        "I1": "ok",
+        "I2": "ok",
+        "I3": "pending",
+        "I4": "pending",
+        "I5": "pending",
+        "I6": "unknown",
+        "I7": "pending"
+      }
+    },
+    {
+      "step": 3,
+      "phase": "deal",
+      "active": 2,
+      "description": "Участник 2 рассылает f_2(j) остальным по защищённому каналу",
+      "new_deals": [
+        {
+          "sender": 2,
+          "receiver": 1,
+          "value": 97
+        },
+        {
+          "sender": 2,
+          "receiver": 3,
+          "value": 47
+        },
+        {
+          "sender": 2,
+          "receiver": 4,
+          "value": 1
+        },
+        {
+          "sender": 2,
+          "receiver": 5,
+          "value": 42
+        }
+      ],
+      "all_deals": [
+        {
+          "sender": 1,
+          "receiver": 2,
+          "value": 17
+        },
+        {
+          "sender": 1,
+          "receiver": 3,
+          "value": 67
+        },
+        {
+          "sender": 1,
+          "receiver": 4,
+          "value": 44
+        },
+        {
+          "sender": 1,
+          "receiver": 5,
+          "value": 49
+        },
+        {
+          "sender": 2,
+          "receiver": 1,
+          "value": 97
+        },
+        {
+          "sender": 2,
+          "receiver": 3,
+          "value": 47
+        },
+        {
+          "sender": 2,
+          "receiver": 4,
+          "value": 1
+        },
+        {
+          "sender": 2,
+          "receiver": 5,
+          "value": 42
+        }
+      ],
+      "votes": [
+        null,
+        1,
+        0,
+        1,
+        1,
+        0
+      ],
+      "polys": [
+        null,
+        [
+          1,
+          81,
+          14
+        ],
+        [
+          0,
+          3,
+          94
+        ],
+        [
+          1,
+          35,
+          31
+        ],
+        [
+          1,
+          28,
+          17
+        ],
+        [
+          0,
+          94,
+          13
+        ]
+      ],
+      "received": [
+        null,
+        {
+          "2": 97
+        },
+        {
+          "1": 17
+        },
+        {
+          "1": 67,
+          "2": 47
+        },
+        {
+          "1": 44,
+          "2": 1
+        },
+        {
+          "1": 49,
+          "2": 42
+        }
+      ],
+      "shares": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "published_senders": [],
+      "reconstructed": null,
+      "aggregate_F": null,
+      "checks": {
+        "I1": "ok",
+        "I2": "ok",
+        "I3": "pending",
+        "I4": "pending",
+        "I5": "pending",
+        "I6": "unknown",
+        "I7": "pending"
+      }
+    },
+    {
+      "step": 4,
+      "phase": "deal",
+      "active": 3,
+      "description": "Участник 3 рассылает f_3(j) остальным по защищённому каналу",
+      "new_deals": [
+        {
+          "sender": 3,
+          "receiver": 1,
+          "value": 67
+        },
+        {
+          "sender": 3,
+          "receiver": 2,
+          "value": 94
+        },
+        {
+          "sender": 3,
+          "receiver": 4,
+          "value": 31
+        },
+        {
+          "sender": 3,
+          "receiver": 5,
+          "value": 42
+        }
+      ],
+      "all_deals": [
+        {
+          "sender": 1,
+          "receiver": 2,
+          "value": 17
+        },
+        {
+          "sender": 1,
+          "receiver": 3,
+          "value": 67
+        },
+        {
+          "sender": 1,
+          "receiver": 4,
+          "value": 44
+        },
+        {
+          "sender": 1,
+          "receiver": 5,
+          "value": 49
+        },
+        {
+          "sender": 2,
+          "receiver": 1,
+          "value": 97
+        },
+        {
+          "sender": 2,
+          "receiver": 3,
+          "value": 47
+        },
+        {
+          "sender": 2,
+          "receiver": 4,
+          "value": 1
+        },
+        {
+          "sender": 2,
+          "receiver": 5,
+          "value": 42
+        },
+        {
+          "sender": 3,
+          "receiver": 1,
+          "value": 67
+        },
+        {
+          "sender": 3,
+          "receiver": 2,
+          "value": 94
+        },
+        {
+          "sender": 3,
+          "receiver": 4,
+          "value": 31
+        },
+        {
+          "sender": 3,
+          "receiver": 5,
+          "value": 42
+        }
+      ],
+      "votes": [
+        null,
+        1,
+        0,
+        1,
+        1,
+        0
+      ],
+      "polys": [
+        null,
+        [
+          1,
+          81,
+          14
+        ],
+        [
+          0,
+          3,
+          94
+        ],
+        [
+          1,
+          35,
+          31
+        ],
+        [
+          1,
+          28,
+          17
+        ],
+        [
+          0,
+          94,
+          13
+        ]
+      ],
+      "received": [
+        null,
+        {
+          "2": 97,
+          "3": 67
+        },
+        {
+          "1": 17,
+          "3": 94
+        },
+        {
+          "1": 67,
+          "2": 47
+        },
+        {
+          "1": 44,
+          "2": 1,
+          "3": 31
+        },
+        {
+          "1": 49,
+          "2": 42,
+          "3": 42
+        }
+      ],
+      "shares": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "published_senders": [],
+      "reconstructed": null,
+      "aggregate_F": null,
+      "checks": {
+        "I1": "ok",
+        "I2": "ok",
+        "I3": "pending",
+        "I4": "pending",
+        "I5": "pending",
+        "I6": "unknown",
+        "I7": "pending"
+      }
+    },
+    {
+      "step": 5,
+      "phase": "deal",
+      "active": 4,
+      "description": "Участник 4 рассылает f_4(j) остальным по защищённому каналу",
+      "new_deals": [
+        {
+          "sender": 4,
+          "receiver": 1,
+          "value": 46
+        },
+        {
+          "sender": 4,
+          "receiver": 2,
+          "value": 24
+        },
+        {
+          "sender": 4,
+          "receiver": 3,
+          "value": 36
+        },
+        {
+          "sender": 4,
+          "receiver": 5,
+          "value": 61
+        }
+      ],
+      "all_deals": [
+        {
+          "sender": 1,
+          "receiver": 2,
+          "value": 17
+        },
+        {
+          "sender": 1,
+          "receiver": 3,
+          "value": 67
+        },
+        {
+          "sender": 1,
+          "receiver": 4,
+          "value": 44
+        },
+        {
+          "sender": 1,
+          "receiver": 5,
+          "value": 49
+        },
+        {
+          "sender": 2,
+          "receiver": 1,
+          "value": 97
+        },
+        {
+          "sender": 2,
+          "receiver": 3,
+          "value": 47
+        },
+        {
+          "sender": 2,
+          "receiver": 4,
+          "value": 1
+        },
+        {
+          "sender": 2,
+          "receiver": 5,
+          "value": 42
+        },
+        {
+          "sender": 3,
+          "receiver": 1,
+          "value": 67
+        },
+        {
+          "sender": 3,
+          "receiver": 2,
+          "value": 94
+        },
+        {
+          "sender": 3,
+          "receiver": 4,
+          "value": 31
+        },
+        {
+          "sender": 3,
+          "receiver": 5,
+          "value": 42
+        },
+        {
+          "sender": 4,
+          "receiver": 1,
+          "value": 46
+        },
+        {
+          "sender": 4,
+          "receiver": 2,
+          "value": 24
+        },
+        {
+          "sender": 4,
+          "receiver": 3,
+          "value": 36
+        },
+        {
+          "sender": 4,
+          "receiver": 5,
+          "value": 61
+        }
+      ],
+      "votes": [
+        null,
+        1,
+        0,
+        1,
+        1,
+        0
+      ],
+      "polys": [
+        null,
+        [
+          1,
+          81,
+          14
+        ],
+        [
+          0,
+          3,
+          94
+        ],
+        [
+          1,
+          35,
+          31
+        ],
+        [
+          1,
+          28,
+          17
+        ],
+        [
+          0,
+          94,
+          13
+        ]
+      ],
+      "received": [
+        null,
+        {
+          "2": 97,
+          "3": 67,
+          "4": 46
+        },
+        {
+          "1": 17,
+          "3": 94,
+          "4": 24
+        },
+        {
+          "1": 67,
+          "2": 47,
+          "4": 36
+        },
+        {
+          "1": 44,
+          "2": 1,
+          "3": 31
+        },
+        {
+          "1": 49,
+          "2": 42,
+          "3": 42,
+          "4": 61
+        }
+      ],
+      "shares": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "published_senders": [],
+      "reconstructed": null,
+      "aggregate_F": null,
+      "checks": {
+        "I1": "ok",
+        "I2": "ok",
+        "I3": "pending",
+        "I4": "pending",
+        "I5": "pending",
+        "I6": "unknown",
+        "I7": "pending"
+      }
+    },
+    {
+      "step": 6,
+      "phase": "deal",
+      "active": 5,
+      "description": "Участник 5 рассылает f_5(j) остальным по защищённому каналу",
+      "new_deals": [
+        {
+          "sender": 5,
+          "receiver": 1,
+          "value": 6
+        },
+        {
+          "sender": 5,
+          "receiver": 2,
+          "value": 38
+        },
+        {
+          "sender": 5,
+          "receiver": 3,
+          "value": 96
+        },
+        {
+          "sender": 5,
+          "receiver": 4,
+          "value": 79
+        }
+      ],
+      "all_deals": [
+        {
+          "sender": 1,
+          "receiver": 2,
+          "value": 17
+        },
+        {
+          "sender": 1,
+          "receiver": 3,
+          "value": 67
+        },
+        {
+          "sender": 1,
+          "receiver": 4,
+          "value": 44
+        },
+        {
+          "sender": 1,
+          "receiver": 5,
+          "value": 49
+        },
+        {
+          "sender": 2,
+          "receiver": 1,
+          "value": 97
+        },
+        {
+          "sender": 2,
+          "receiver": 3,
+          "value": 47
+        },
+        {
+          "sender": 2,
+          "receiver": 4,
+          "value": 1
+        },
+        {
+          "sender": 2,
+          "receiver": 5,
+          "value": 42
+        },
+        {
+          "sender": 3,
+          "receiver": 1,
+          "value": 67
+        },
+        {
+          "sender": 3,
+          "receiver": 2,
+          "value": 94
+        },
+        {
+          "sender": 3,
+          "receiver": 4,
+          "value": 31
+        },
+        {
+          "sender": 3,
+          "receiver": 5,
+          "value": 42
+        },
+        {
+          "sender": 4,
+          "receiver": 1,
+          "value": 46
+        },
+        {
+          "sender": 4,
+          "receiver": 2,
+          "value": 24
+        },
+        {
+          "sender": 4,
+          "receiver": 3,
+          "value": 36
+        },
+        {
+          "sender": 4,
+          "receiver": 5,
+          "value": 61
+        },
+        {
+          "sender": 5,
+          "receiver": 1,
+          "value": 6
+        },
+        {
+          "sender": 5,
+          "receiver": 2,
+          "value": 38
+        },
+        {
+          "sender": 5,
+          "receiver": 3,
+          "value": 96
+        },
+        {
+          "sender": 5,
+          "receiver": 4,
+          "value": 79
+        }
+      ],
+      "votes": [
+        null,
+        1,
+        0,
+        1,
+        1,
+        0
+      ],
+      "polys": [
+        null,
+        [
+          1,
+          81,
+          14
+        ],
+        [
+          0,
+          3,
+          94
+        ],
+        [
+          1,
+          35,
+          31
+        ],
+        [
+          1,
+          28,
+          17
+        ],
+        [
+          0,
+          94,
+          13
+        ]
+      ],
+      "received": [
+        null,
+        {
+          "2": 97,
+          "3": 67,
+          "4": 46,
+          "5": 6
+        },
+        {
+          "1": 17,
+          "3": 94,
+          "4": 24,
+          "5": 38
+        },
+        {
+          "1": 67,
+          "2": 47,
+          "4": 36,
+          "5": 96
+        },
+        {
+          "1": 44,
+          "2": 1,
+          "3": 31,
+          "5": 79
+        },
+        {
+          "1": 49,
+          "2": 42,
+          "3": 42,
+          "4": 61
+        }
+      ],
+      "shares": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "published_senders": [],
+      "reconstructed": null,
+      "aggregate_F": null,
+      "checks": {
+        "I1": "ok",
+        "I2": "ok",
+        "I3": "ok",
+        "I4": "pending",
+        "I5": "pending",
+        "I6": "unknown",
+        "I7": "pending"
+      }
+    },
+    {
+      "step": 7,
+      "phase": "sum",
+      "active": null,
+      "description": "Каждый участник вычислил s_j = Σ_i f_i(j) mod p",
+      "new_deals": [],
+      "all_deals": [
+        {
+          "sender": 1,
+          "receiver": 2,
+          "value": 17
+        },
+        {
+          "sender": 1,
+          "receiver": 3,
+          "value": 67
+        },
+        {
+          "sender": 1,
+          "receiver": 4,
+          "value": 44
+        },
+        {
+          "sender": 1,
+          "receiver": 5,
+          "value": 49
+        },
+        {
+          "sender": 2,
+          "receiver": 1,
+          "value": 97
+        },
+        {
+          "sender": 2,
+          "receiver": 3,
+          "value": 47
+        },
+        {
+          "sender": 2,
+          "receiver": 4,
+          "value": 1
+        },
+        {
+          "sender": 2,
+          "receiver": 5,
+          "value": 42
+        },
+        {
+          "sender": 3,
+          "receiver": 1,
+          "value": 67
+        },
+        {
+          "sender": 3,
+          "receiver": 2,
+          "value": 94
+        },
+        {
+          "sender": 3,
+          "receiver": 4,
+          "value": 31
+        },
+        {
+          "sender": 3,
+          "receiver": 5,
+          "value": 42
+        },
+        {
+          "sender": 4,
+          "receiver": 1,
+          "value": 46
+        },
+        {
+          "sender": 4,
+          "receiver": 2,
+          "value": 24
+        },
+        {
+          "sender": 4,
+          "receiver": 3,
+          "value": 36
+        },
+        {
+          "sender": 4,
+          "receiver": 5,
+          "value": 61
+        },
+        {
+          "sender": 5,
+          "receiver": 1,
+          "value": 6
+        },
+        {
+          "sender": 5,
+          "receiver": 2,
+          "value": 38
+        },
+        {
+          "sender": 5,
+          "receiver": 3,
+          "value": 96
+        },
+        {
+          "sender": 5,
+          "receiver": 4,
+          "value": 79
+        }
+      ],
+      "votes": [
+        null,
+        1,
+        0,
+        1,
+        1,
+        0
+      ],
+      "polys": [
+        null,
+        [
+          1,
+          81,
+          14
+        ],
+        [
+          0,
+          3,
+          94
+        ],
+        [
+          1,
+          35,
+          31
+        ],
+        [
+          1,
+          28,
+          17
+        ],
+        [
+          0,
+          94,
+          13
+        ]
+      ],
+      "received": [
+        null,
+        {
+          "2": 97,
+          "3": 67,
+          "4": 46,
+          "5": 6
+        },
+        {
+          "1": 17,
+          "3": 94,
+          "4": 24,
+          "5": 38
+        },
+        {
+          "1": 67,
+          "2": 47,
+          "4": 36,
+          "5": 96
+        },
+        {
+          "1": 44,
+          "2": 1,
+          "3": 31,
+          "5": 79
+        },
+        {
+          "1": 49,
+          "2": 42,
+          "3": 42,
+          "4": 61
+        }
+      ],
+      "shares": [
+        null,
+        9,
+        50,
+        25,
+        35,
+        80
+      ],
+      "published_senders": [],
+      "reconstructed": null,
+      "aggregate_F": null,
+      "checks": {
+        "I1": "ok",
+        "I2": "ok",
+        "I3": "ok",
+        "I4": "ok",
+        "I5": "pending",
+        "I6": "unknown",
+        "I7": "ok"
+      }
+    },
+    {
+      "step": 8,
+      "phase": "publish",
+      "active": 1,
+      "description": "Участник 1 публикует s_1 на доске объявлений",
+      "new_deals": [
+        {
+          "sender": 1,
+          "receiver": -1,
+          "value": 9
+        }
+      ],
+      "all_deals": [
+        {
+          "sender": 1,
+          "receiver": 2,
+          "value": 17
+        },
+        {
+          "sender": 1,
+          "receiver": 3,
+          "value": 67
+        },
+        {
+          "sender": 1,
+          "receiver": 4,
+          "value": 44
+        },
+        {
+          "sender": 1,
+          "receiver": 5,
+          "value": 49
+        },
+        {
+          "sender": 2,
+          "receiver": 1,
+          "value": 97
+        },
+        {
+          "sender": 2,
+          "receiver": 3,
+          "value": 47
+        },
+        {
+          "sender": 2,
+          "receiver": 4,
+          "value": 1
+        },
+        {
+          "sender": 2,
+          "receiver": 5,
+          "value": 42
+        },
+        {
+          "sender": 3,
+          "receiver": 1,
+          "value": 67
+        },
+        {
+          "sender": 3,
+          "receiver": 2,
+          "value": 94
+        },
+        {
+          "sender": 3,
+          "receiver": 4,
+          "value": 31
+        },
+        {
+          "sender": 3,
+          "receiver": 5,
+          "value": 42
+        },
+        {
+          "sender": 4,
+          "receiver": 1,
+          "value": 46
+        },
+        {
+          "sender": 4,
+          "receiver": 2,
+          "value": 24
+        },
+        {
+          "sender": 4,
+          "receiver": 3,
+          "value": 36
+        },
+        {
+          "sender": 4,
+          "receiver": 5,
+          "value": 61
+        },
+        {
+          "sender": 5,
+          "receiver": 1,
+          "value": 6
+        },
+        {
+          "sender": 5,
+          "receiver": 2,
+          "value": 38
+        },
+        {
+          "sender": 5,
+          "receiver": 3,
+          "value": 96
+        },
+        {
+          "sender": 5,
+          "receiver": 4,
+          "value": 79
+        },
+        {
+          "sender": 1,
+          "receiver": -1,
+          "value": 9
+        }
+      ],
+      "votes": [
+        null,
+        1,
+        0,
+        1,
+        1,
+        0
+      ],
+      "polys": [
+        null,
+        [
+          1,
+          81,
+          14
+        ],
+        [
+          0,
+          3,
+          94
+        ],
+        [
+          1,
+          35,
+          31
+        ],
+        [
+          1,
+          28,
+          17
+        ],
+        [
+          0,
+          94,
+          13
+        ]
+      ],
+      "received": [
+        null,
+        {
+          "2": 97,
+          "3": 67,
+          "4": 46,
+          "5": 6
+        },
+        {
+          "1": 17,
+          "3": 94,
+          "4": 24,
+          "5": 38
+        },
+        {
+          "1": 67,
+          "2": 47,
+          "4": 36,
+          "5": 96
+        },
+        {
+          "1": 44,
+          "2": 1,
+          "3": 31,
+          "5": 79
+        },
+        {
+          "1": 49,
+          "2": 42,
+          "3": 42,
+          "4": 61
+        }
+      ],
+      "shares": [
+        null,
+        9,
+        50,
+        25,
+        35,
+        80
+      ],
+      "published_senders": [
+        1
+      ],
+      "reconstructed": null,
+      "aggregate_F": null,
+      "checks": {
+        "I1": "ok",
+        "I2": "ok",
+        "I3": "ok",
+        "I4": "ok",
+        "I5": "pending",
+        "I6": "unknown",
+        "I7": "ok"
+      }
+    },
+    {
+      "step": 9,
+      "phase": "publish",
+      "active": 2,
+      "description": "Участник 2 публикует s_2 на доске объявлений",
+      "new_deals": [
+        {
+          "sender": 2,
+          "receiver": -1,
+          "value": 50
+        }
+      ],
+      "all_deals": [
+        {
+          "sender": 1,
+          "receiver": 2,
+          "value": 17
+        },
+        {
+          "sender": 1,
+          "receiver": 3,
+          "value": 67
+        },
+        {
+          "sender": 1,
+          "receiver": 4,
+          "value": 44
+        },
+        {
+          "sender": 1,
+          "receiver": 5,
+          "value": 49
+        },
+        {
+          "sender": 2,
+          "receiver": 1,
+          "value": 97
+        },
+        {
+          "sender": 2,
+          "receiver": 3,
+          "value": 47
+        },
+        {
+          "sender": 2,
+          "receiver": 4,
+          "value": 1
+        },
+        {
+          "sender": 2,
+          "receiver": 5,
+          "value": 42
+        },
+        {
+          "sender": 3,
+          "receiver": 1,
+          "value": 67
+        },
+        {
+          "sender": 3,
+          "receiver": 2,
+          "value": 94
+        },
+        {
+          "sender": 3,
+          "receiver": 4,
+          "value": 31
+        },
+        {
+          "sender": 3,
+          "receiver": 5,
+          "value": 42
+        },
+        {
+          "sender": 4,
+          "receiver": 1,
+          "value": 46
+        },
+        {
+          "sender": 4,
+          "receiver": 2,
+          "value": 24
+        },
+        {
+          "sender": 4,
+          "receiver": 3,
+          "value": 36
+        },
+        {
+          "sender": 4,
+          "receiver": 5,
+          "value": 61
+        },
+        {
+          "sender": 5,
+          "receiver": 1,
+          "value": 6
+        },
+        {
+          "sender": 5,
+          "receiver": 2,
+          "value": 38
+        },
+        {
+          "sender": 5,
+          "receiver": 3,
+          "value": 96
+        },
+        {
+          "sender": 5,
+          "receiver": 4,
+          "value": 79
+        },
+        {
+          "sender": 1,
+          "receiver": -1,
+          "value": 9
+        },
+        {
+          "sender": 2,
+          "receiver": -1,
+          "value": 50
+        }
+      ],
+      "votes": [
+        null,
+        1,
+        0,
+        1,
+        1,
+        0
+      ],
+      "polys": [
+        null,
+        [
+          1,
+          81,
+          14
+        ],
+        [
+          0,
+          3,
+          94
+        ],
+        [
+          1,
+          35,
+          31
+        ],
+        [
+          1,
+          28,
+          17
+        ],
+        [
+          0,
+          94,
+          13
+        ]
+      ],
+      "received": [
+        null,
+        {
+          "2": 97,
+          "3": 67,
+          "4": 46,
+          "5": 6
+        },
+        {
+          "1": 17,
+          "3": 94,
+          "4": 24,
+          "5": 38
+        },
+        {
+          "1": 67,
+          "2": 47,
+          "4": 36,
+          "5": 96
+        },
+        {
+          "1": 44,
+          "2": 1,
+          "3": 31,
+          "5": 79
+        },
+        {
+          "1": 49,
+          "2": 42,
+          "3": 42,
+          "4": 61
+        }
+      ],
+      "shares": [
+        null,
+        9,
+        50,
+        25,
+        35,
+        80
+      ],
+      "published_senders": [
+        1,
+        2
+      ],
+      "reconstructed": null,
+      "aggregate_F": null,
+      "checks": {
+        "I1": "ok",
+        "I2": "ok",
+        "I3": "ok",
+        "I4": "ok",
+        "I5": "pending",
+        "I6": "unknown",
+        "I7": "ok"
+      }
+    },
+    {
+      "step": 10,
+      "phase": "publish",
+      "active": 3,
+      "description": "Участник 3 публикует s_3 на доске объявлений",
+      "new_deals": [
+        {
+          "sender": 3,
+          "receiver": -1,
+          "value": 25
+        }
+      ],
+      "all_deals": [
+        {
+          "sender": 1,
+          "receiver": 2,
+          "value": 17
+        },
+        {
+          "sender": 1,
+          "receiver": 3,
+          "value": 67
+        },
+        {
+          "sender": 1,
+          "receiver": 4,
+          "value": 44
+        },
+        {
+          "sender": 1,
+          "receiver": 5,
+          "value": 49
+        },
+        {
+          "sender": 2,
+          "receiver": 1,
+          "value": 97
+        },
+        {
+          "sender": 2,
+          "receiver": 3,
+          "value": 47
+        },
+        {
+          "sender": 2,
+          "receiver": 4,
+          "value": 1
+        },
+        {
+          "sender": 2,
+          "receiver": 5,
+          "value": 42
+        },
+        {
+          "sender": 3,
+          "receiver": 1,
+          "value": 67
+        },
+        {
+          "sender": 3,
+          "receiver": 2,
+          "value": 94
+        },
+        {
+          "sender": 3,
+          "receiver": 4,
+          "value": 31
+        },
+        {
+          "sender": 3,
+          "receiver": 5,
+          "value": 42
+        },
+        {
+          "sender": 4,
+          "receiver": 1,
+          "value": 46
+        },
+        {
+          "sender": 4,
+          "receiver": 2,
+          "value": 24
+        },
+        {
+          "sender": 4,
+          "receiver": 3,
+          "value": 36
+        },
+        {
+          "sender": 4,
+          "receiver": 5,
+          "value": 61
+        },
+        {
+          "sender": 5,
+          "receiver": 1,
+          "value": 6
+        },
+        {
+          "sender": 5,
+          "receiver": 2,
+          "value": 38
+        },
+        {
+          "sender": 5,
+          "receiver": 3,
+          "value": 96
+        },
+        {
+          "sender": 5,
+          "receiver": 4,
+          "value": 79
+        },
+        {
+          "sender": 1,
+          "receiver": -1,
+          "value": 9
+        },
+        {
+          "sender": 2,
+          "receiver": -1,
+          "value": 50
+        },
+        {
+          "sender": 3,
+          "receiver": -1,
+          "value": 25
+        }
+      ],
+      "votes": [
+        null,
+        1,
+        0,
+        1,
+        1,
+        0
+      ],
+      "polys": [
+        null,
+        [
+          1,
+          81,
+          14
+        ],
+        [
+          0,
+          3,
+          94
+        ],
+        [
+          1,
+          35,
+          31
+        ],
+        [
+          1,
+          28,
+          17
+        ],
+        [
+          0,
+          94,
+          13
+        ]
+      ],
+      "received": [
+        null,
+        {
+          "2": 97,
+          "3": 67,
+          "4": 46,
+          "5": 6
+        },
+        {
+          "1": 17,
+          "3": 94,
+          "4": 24,
+          "5": 38
+        },
+        {
+          "1": 67,
+          "2": 47,
+          "4": 36,
+          "5": 96
+        },
+        {
+          "1": 44,
+          "2": 1,
+          "3": 31,
+          "5": 79
+        },
+        {
+          "1": 49,
+          "2": 42,
+          "3": 42,
+          "4": 61
+        }
+      ],
+      "shares": [
+        null,
+        9,
+        50,
+        25,
+        35,
+        80
+      ],
+      "published_senders": [
+        1,
+        2,
+        3
+      ],
+      "reconstructed": null,
+      "aggregate_F": null,
+      "checks": {
+        "I1": "ok",
+        "I2": "ok",
+        "I3": "ok",
+        "I4": "ok",
+        "I5": "pending",
+        "I6": "unknown",
+        "I7": "ok"
+      }
+    },
+    {
+      "step": 11,
+      "phase": "publish",
+      "active": 4,
+      "description": "Участник 4 публикует s_4 на доске объявлений",
+      "new_deals": [
+        {
+          "sender": 4,
+          "receiver": -1,
+          "value": 35
+        }
+      ],
+      "all_deals": [
+        {
+          "sender": 1,
+          "receiver": 2,
+          "value": 17
+        },
+        {
+          "sender": 1,
+          "receiver": 3,
+          "value": 67
+        },
+        {
+          "sender": 1,
+          "receiver": 4,
+          "value": 44
+        },
+        {
+          "sender": 1,
+          "receiver": 5,
+          "value": 49
+        },
+        {
+          "sender": 2,
+          "receiver": 1,
+          "value": 97
+        },
+        {
+          "sender": 2,
+          "receiver": 3,
+          "value": 47
+        },
+        {
+          "sender": 2,
+          "receiver": 4,
+          "value": 1
+        },
+        {
+          "sender": 2,
+          "receiver": 5,
+          "value": 42
+        },
+        {
+          "sender": 3,
+          "receiver": 1,
+          "value": 67
+        },
+        {
+          "sender": 3,
+          "receiver": 2,
+          "value": 94
+        },
+        {
+          "sender": 3,
+          "receiver": 4,
+          "value": 31
+        },
+        {
+          "sender": 3,
+          "receiver": 5,
+          "value": 42
+        },
+        {
+          "sender": 4,
+          "receiver": 1,
+          "value": 46
+        },
+        {
+          "sender": 4,
+          "receiver": 2,
+          "value": 24
+        },
+        {
+          "sender": 4,
+          "receiver": 3,
+          "value": 36
+        },
+        {
+          "sender": 4,
+          "receiver": 5,
+          "value": 61
+        },
+        {
+          "sender": 5,
+          "receiver": 1,
+          "value": 6
+        },
+        {
+          "sender": 5,
+          "receiver": 2,
+          "value": 38
+        },
+        {
+          "sender": 5,
+          "receiver": 3,
+          "value": 96
+        },
+        {
+          "sender": 5,
+          "receiver": 4,
+          "value": 79
+        },
+        {
+          "sender": 1,
+          "receiver": -1,
+          "value": 9
+        },
+        {
+          "sender": 2,
+          "receiver": -1,
+          "value": 50
+        },
+        {
+          "sender": 3,
+          "receiver": -1,
+          "value": 25
+        },
+        {
+          "sender": 4,
+          "receiver": -1,
+          "value": 35
+        }
+      ],
+      "votes": [
+        null,
+        1,
+        0,
+        1,
+        1,
+        0
+      ],
+      "polys": [
+        null,
+        [
+          1,
+          81,
+          14
+        ],
+        [
+          0,
+          3,
+          94
+        ],
+        [
+          1,
+          35,
+          31
+        ],
+        [
+          1,
+          28,
+          17
+        ],
+        [
+          0,
+          94,
+          13
+        ]
+      ],
+      "received": [
+        null,
+        {
+          "2": 97,
+          "3": 67,
+          "4": 46,
+          "5": 6
+        },
+        {
+          "1": 17,
+          "3": 94,
+          "4": 24,
+          "5": 38
+        },
+        {
+          "1": 67,
+          "2": 47,
+          "4": 36,
+          "5": 96
+        },
+        {
+          "1": 44,
+          "2": 1,
+          "3": 31,
+          "5": 79
+        },
+        {
+          "1": 49,
+          "2": 42,
+          "3": 42,
+          "4": 61
+        }
+      ],
+      "shares": [
+        null,
+        9,
+        50,
+        25,
+        35,
+        80
+      ],
+      "published_senders": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "reconstructed": null,
+      "aggregate_F": null,
+      "checks": {
+        "I1": "ok",
+        "I2": "ok",
+        "I3": "ok",
+        "I4": "ok",
+        "I5": "pending",
+        "I6": "unknown",
+        "I7": "ok"
+      }
+    },
+    {
+      "step": 12,
+      "phase": "publish",
+      "active": 5,
+      "description": "Участник 5 публикует s_5 на доске объявлений",
+      "new_deals": [
+        {
+          "sender": 5,
+          "receiver": -1,
+          "value": 80
+        }
+      ],
+      "all_deals": [
+        {
+          "sender": 1,
+          "receiver": 2,
+          "value": 17
+        },
+        {
+          "sender": 1,
+          "receiver": 3,
+          "value": 67
+        },
+        {
+          "sender": 1,
+          "receiver": 4,
+          "value": 44
+        },
+        {
+          "sender": 1,
+          "receiver": 5,
+          "value": 49
+        },
+        {
+          "sender": 2,
+          "receiver": 1,
+          "value": 97
+        },
+        {
+          "sender": 2,
+          "receiver": 3,
+          "value": 47
+        },
+        {
+          "sender": 2,
+          "receiver": 4,
+          "value": 1
+        },
+        {
+          "sender": 2,
+          "receiver": 5,
+          "value": 42
+        },
+        {
+          "sender": 3,
+          "receiver": 1,
+          "value": 67
+        },
+        {
+          "sender": 3,
+          "receiver": 2,
+          "value": 94
+        },
+        {
+          "sender": 3,
+          "receiver": 4,
+          "value": 31
+        },
+        {
+          "sender": 3,
+          "receiver": 5,
+          "value": 42
+        },
+        {
+          "sender": 4,
+          "receiver": 1,
+          "value": 46
+        },
+        {
+          "sender": 4,
+          "receiver": 2,
+          "value": 24
+        },
+        {
+          "sender": 4,
+          "receiver": 3,
+          "value": 36
+        },
+        {
+          "sender": 4,
+          "receiver": 5,
+          "value": 61
+        },
+        {
+          "sender": 5,
+          "receiver": 1,
+          "value": 6
+        },
+        {
+          "sender": 5,
+          "receiver": 2,
+          "value": 38
+        },
+        {
+          "sender": 5,
+          "receiver": 3,
+          "value": 96
+        },
+        {
+          "sender": 5,
+          "receiver": 4,
+          "value": 79
+        },
+        {
+          "sender": 1,
+          "receiver": -1,
+          "value": 9
+        },
+        {
+          "sender": 2,
+          "receiver": -1,
+          "value": 50
+        },
+        {
+          "sender": 3,
+          "receiver": -1,
+          "value": 25
+        },
+        {
+          "sender": 4,
+          "receiver": -1,
+          "value": 35
+        },
+        {
+          "sender": 5,
+          "receiver": -1,
+          "value": 80
+        }
+      ],
+      "votes": [
+        null,
+        1,
+        0,
+        1,
+        1,
+        0
+      ],
+      "polys": [
+        null,
+        [
+          1,
+          81,
+          14
+        ],
+        [
+          0,
+          3,
+          94
+        ],
+        [
+          1,
+          35,
+          31
+        ],
+        [
+          1,
+          28,
+          17
+        ],
+        [
+          0,
+          94,
+          13
+        ]
+      ],
+      "received": [
+        null,
+        {
+          "2": 97,
+          "3": 67,
+          "4": 46,
+          "5": 6
+        },
+        {
+          "1": 17,
+          "3": 94,
+          "4": 24,
+          "5": 38
+        },
+        {
+          "1": 67,
+          "2": 47,
+          "4": 36,
+          "5": 96
+        },
+        {
+          "1": 44,
+          "2": 1,
+          "3": 31,
+          "5": 79
+        },
+        {
+          "1": 49,
+          "2": 42,
+          "3": 42,
+          "4": 61
+        }
+      ],
+      "shares": [
+        null,
+        9,
+        50,
+        25,
+        35,
+        80
+      ],
+      "published_senders": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "reconstructed": null,
+      "aggregate_F": null,
+      "checks": {
+        "I1": "ok",
+        "I2": "ok",
+        "I3": "ok",
+        "I4": "ok",
+        "I5": "pending",
+        "I6": "unknown",
+        "I7": "ok"
+      }
+    },
+    {
+      "step": 13,
+      "phase": "reconstruct",
+      "active": null,
+      "description": "Любые t=3 опубликованных долей восстанавливают S=F(0); все C(5,3)=10 подмножеств дают одно S",
+      "new_deals": [],
+      "all_deals": [
+        {
+          "sender": 1,
+          "receiver": 2,
+          "value": 17
+        },
+        {
+          "sender": 1,
+          "receiver": 3,
+          "value": 67
+        },
+        {
+          "sender": 1,
+          "receiver": 4,
+          "value": 44
+        },
+        {
+          "sender": 1,
+          "receiver": 5,
+          "value": 49
+        },
+        {
+          "sender": 2,
+          "receiver": 1,
+          "value": 97
+        },
+        {
+          "sender": 2,
+          "receiver": 3,
+          "value": 47
+        },
+        {
+          "sender": 2,
+          "receiver": 4,
+          "value": 1
+        },
+        {
+          "sender": 2,
+          "receiver": 5,
+          "value": 42
+        },
+        {
+          "sender": 3,
+          "receiver": 1,
+          "value": 67
+        },
+        {
+          "sender": 3,
+          "receiver": 2,
+          "value": 94
+        },
+        {
+          "sender": 3,
+          "receiver": 4,
+          "value": 31
+        },
+        {
+          "sender": 3,
+          "receiver": 5,
+          "value": 42
+        },
+        {
+          "sender": 4,
+          "receiver": 1,
+          "value": 46
+        },
+        {
+          "sender": 4,
+          "receiver": 2,
+          "value": 24
+        },
+        {
+          "sender": 4,
+          "receiver": 3,
+          "value": 36
+        },
+        {
+          "sender": 4,
+          "receiver": 5,
+          "value": 61
+        },
+        {
+          "sender": 5,
+          "receiver": 1,
+          "value": 6
+        },
+        {
+          "sender": 5,
+          "receiver": 2,
+          "value": 38
+        },
+        {
+          "sender": 5,
+          "receiver": 3,
+          "value": 96
+        },
+        {
+          "sender": 5,
+          "receiver": 4,
+          "value": 79
+        },
+        {
+          "sender": 1,
+          "receiver": -1,
+          "value": 9
+        },
+        {
+          "sender": 2,
+          "receiver": -1,
+          "value": 50
+        },
+        {
+          "sender": 3,
+          "receiver": -1,
+          "value": 25
+        },
+        {
+          "sender": 4,
+          "receiver": -1,
+          "value": 35
+        },
+        {
+          "sender": 5,
+          "receiver": -1,
+          "value": 80
+        }
+      ],
+      "votes": [
+        null,
+        1,
+        0,
+        1,
+        1,
+        0
+      ],
+      "polys": [
+        null,
+        [
+          1,
+          81,
+          14
+        ],
+        [
+          0,
+          3,
+          94
+        ],
+        [
+          1,
+          35,
+          31
+        ],
+        [
+          1,
+          28,
+          17
+        ],
+        [
+          0,
+          94,
+          13
+        ]
+      ],
+      "received": [
+        null,
+        {
+          "2": 97,
+          "3": 67,
+          "4": 46,
+          "5": 6
+        },
+        {
+          "1": 17,
+          "3": 94,
+          "4": 24,
+          "5": 38
+        },
+        {
+          "1": 67,
+          "2": 47,
+          "4": 36,
+          "5": 96
+        },
+        {
+          "1": 44,
+          "2": 1,
+          "3": 31,
+          "5": 79
+        },
+        {
+          "1": 49,
+          "2": 42,
+          "3": 42,
+          "4": 61
+        }
+      ],
+      "shares": [
+        null,
+        9,
+        50,
+        25,
+        35,
+        80
+      ],
+      "published_senders": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "reconstructed": [
+        {
+          "subset": [
+            1,
+            2,
+            3
+          ],
+          "value": 3
+        },
+        {
+          "subset": [
+            1,
+            2,
+            4
+          ],
+          "value": 3
+        },
+        {
+          "subset": [
+            1,
+            2,
+            5
+          ],
+          "value": 3
+        },
+        {
+          "subset": [
+            1,
+            3,
+            4
+          ],
+          "value": 3
+        },
+        {
+          "subset": [
+            1,
+            3,
+            5
+          ],
+          "value": 3
+        },
+        {
+          "subset": [
+            1,
+            4,
+            5
+          ],
+          "value": 3
+        },
+        {
+          "subset": [
+            2,
+            3,
+            4
+          ],
+          "value": 3
+        },
+        {
+          "subset": [
+            2,
+            3,
+            5
+          ],
+          "value": 3
+        },
+        {
+          "subset": [
+            2,
+            4,
+            5
+          ],
+          "value": 3
+        },
+        {
+          "subset": [
+            3,
+            4,
+            5
+          ],
+          "value": 3
+        }
+      ],
+      "aggregate_F": [
+        3,
+        39,
+        68
+      ],
+      "checks": {
+        "I1": "ok",
+        "I2": "ok",
+        "I3": "ok",
+        "I4": "ok",
+        "I5": "ok",
+        "I6": "unknown",
+        "I7": "ok"
+      }
+    }
+  ]
+}
