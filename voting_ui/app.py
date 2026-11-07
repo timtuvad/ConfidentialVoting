@@ -95,13 +95,51 @@ def load_trace() -> tuple[Trace | None,str]:
                 else:
                     st.caption('Меняется одна координата одного публичного вектора sⱼ.')
 
-        params=(n,t,p,seed,choices,options,scenario,attacker,delta,receiver,invalid_secret,attack_option)
+        st.divider()
+        st.subheader('Этап 3 · Консенсус и исключение')
+        enable_consensus=st.checkbox('Включить голосование об исключении malicious-агентов',value=True)
+        detector_mode='none'
+        manual_accusations={}
+        max_consensus_rounds=10
+        if enable_consensus:
+            detector_mode=st.selectbox('Откуда брать подозрения участников',
+                ('demo_oracle', 'manual', 'none', 'external'),
+                format_func=lambda key: {
+                    'demo_oracle':'⚠️ Демо: всем известен заданный атакующий (не криптография)',
+                    'manual':'Ручные MaliciousReport каждого участника',
+                    'none':'Нет обвинений / детектор пока не подключён',
+                    'external':'🔧 Мой детектор (threshold_voting/detector_adapter.py)'
+                }[key])
+            if detector_mode=='external':
+                st.info('Для этого режима реализуй detect(observer, suspect, evidence) '
+                        'в threshold_voting/detector_adapter.py.')
+            if detector_mode=='demo_oracle':
+                st.warning('Учебный оракул знает malicious-id из параметров запуска. '
+                           'В реальном протоколе это недоступно; подключи свой детектор.')
+            elif detector_mode=='manual':
+                st.caption('Отметь, кого каждый участник считает malicious. '
+                           'MaliciousReport публикуются публично, порог строго > 50%.')
+                for observer in range(1,n+1):
+                    candidates=[suspect for suspect in range(1,n+1) if suspect!=observer]
+                    manual_accusations[observer]=tuple(st.multiselect(
+                        f'P{observer} подозревает', candidates, key=f'accusations_{n}_{observer}'))
+            max_consensus_rounds=int(st.number_input('Максимум раундов',
+                                      min_value=1,max_value=30,value=10))
+
+        accusations_key=tuple(sorted((i, tuple(v)) for i,v in manual_accusations.items()))
+        params=(n,t,p,seed,choices,options,scenario,attacker,delta,receiver,
+                invalid_secret,attack_option,enable_consensus,detector_mode,
+                accusations_key,max_consensus_rounds)
         cache_key=repr(params)
         if st.button('Пересчитать',type='primary',use_container_width=True) or st.session_state.get('trace_config')!=cache_key:
             try:
                 trace=load_backend(n,t,p,seed,choices,options,scenario,attacker,delta,receiver,
-                                   invalid_secret,attack_option)
-            except (ValueError,TypeError,ImportError,AttributeError,ZeroDivisionError) as exc:
+                                   invalid_secret,attack_option,
+                                   enable_consensus=enable_consensus,
+                                   detector_mode=detector_mode,
+                                   manual_accusations=manual_accusations,
+                                   max_consensus_rounds=max_consensus_rounds)
+            except (ValueError,TypeError,ImportError,AttributeError,ZeroDivisionError,NotImplementedError) as exc:
                 st.error(f'Ошибка расчёта: {exc}')
                 st.session_state.pop('trace_data',None)
                 st.session_state.pop('trace_config',None)
@@ -137,10 +175,76 @@ def render_attack(frame:Frame) -> None:
         st.caption('Приватные сообщения и локальные суммы корректны; искажена только публикация.')
 
 
+def render_consensus(frame:Frame) -> None:
+    """Публичные заявления участников и результат циклического исключения."""
+    if frame.round_number == 0:
+        return
+    st.subheader(f'🗳️ Этап 3 · Раунд {frame.round_number}: MaliciousReport')
+    active_text=', '.join(f'P{i}' for i in frame.active_participants)
+    excluded_text=', '.join(f'P{i}' for i in frame.excluded_participants) or 'нет'
+    a,b,c=st.columns(3)
+    a.metric('Остались активны',len(frame.active_participants))
+    b.metric('Всего исключено',len(frame.excluded_participants))
+    c.metric('Текущий порог Шамира t',frame.t)
+    st.caption(f'Активные: {active_text or "нет"}. Исключённые: {excluded_text}. '
+               'Решение о malicious принимается строго >50% активных в данном раунде.')
+    st.caption(f'Состояние VotingSession: `{frame.session_phase}`. '
+               'ID участников не перенумеровываются после исключений.')
+    if frame.membership_events:
+        with st.expander('История регистрации и исключения участников'):
+            st.dataframe([{'Событие': event, 'Участник': f'P{idx}',
+                           'Раунд': '-' if rid is None else rid}
+                          for event, idx, rid in frame.membership_events],
+                         hide_index=True, use_container_width=True)
+    round_messages=[v for v in frame.reports if v.round_id == frame.round_number]
+    electorate = frame.round_electorate or frame.active_participants
+    if round_messages:
+        observers=sorted({v.reporter for v in round_messages})
+        min_votes=len(electorate)//2+1
+        st.caption(f'Строгое большинство: минимум {min_votes} из {len(electorate)} '
+                   'участников раунда; собственный голос подозреваемого не считается обвинением.')
+        with st.expander('Публичные MaliciousReport (broadcast)',expanded=frame.phase in ('report','tally')):
+            st.dataframe([{'Раунд':v.round_id,'Кто голосует':f'P{v.reporter}',
+                           'Подозреваемый':f'P{v.suspect}',
+                           'MaliciousReport':'malicious' if v.is_malicious else 'не обвиняет'}
+                          for v in round_messages],hide_index=True,use_container_width=True)
+    if frame.tallies:
+        st.dataframe([{'Агент':f'P{i}', 'Обвинений':votes,
+                       'Строгое большинство': 'Да' if votes >= (len(electorate)//2+1)
+                       else 'Нет'} for i,votes in frame.tallies],
+                     hide_index=True,use_container_width=True)
+    if frame.new_exclusions:
+        st.error('Исключены решением большинства: '+', '.join(f'P{i}' for i in frame.new_exclusions))
+    if frame.phase=='restart':
+        st.warning(f'Осталось меньше прежнего t: запущено новое распределение долей с t={frame.t}.')
+    if frame.phase=='reaggregate':
+        st.success('Новые доли пересчитаны и опубликованы без исключённых участников. '
+                   'Использовано вычитание по модулю p, НЕ XOR.')
+    if frame.consensus_status=='finalized' and frame.final_result is not None:
+        st.success('✅ Итог утверждён после проверки голосов и согласованности: '
+                   +vec_text(frame.final_result,frame.options))
+        maxi=max(frame.final_result)
+        winners=[frame.options[k] for k,value in enumerate(frame.final_result) if value==maxi]
+        st.markdown('**Победитель:** '+', '.join(winners)+(' (ничья)' if len(winners)>1 else ''))
+    elif frame.consensus_status=='restarted':
+        st.warning(f'Порог снизился: свежий протокол Шамира с t={frame.t} и новыми многочленами.')
+    elif frame.consensus_status=='terminated_too_few':
+        st.error(f'Осталось {len(frame.active_participants)} участников (<2): '
+                 'протокол завершён принудительно, результат не объявляется.')
+    elif frame.consensus_status=='unresolved':
+        st.error('Нет новых исключений, но согласованный допустимый итог не подтверждён.')
+    elif frame.consensus_status=='max_rounds':
+        st.warning('Достигнут максимум раундов: итог не утверждён.')
+    st.caption('Важно: простое большинство не доказывает правильность детектора; '
+               'ошибочные обвинения могут исключить честного участника. '
+               'Утверждение результата проверяет согласованность и сумму счётчиков, '
+               'но не заменяет ZKP допустимости каждого OHE-бюллетеня.')
+
+
 def render_cards(frame:Frame) -> None:
     st.subheader('Участники')
     for card in frame.cards:
-        title=f'{"🔓" if card.can_see_private else "🔒"} P{card.idx} · '+('опубликовано' if card.published else 'пока не опубликовано')
+        title=f'{"⛔" if card.idx in frame.excluded_participants else "🔓" if card.can_see_private else "🔒"} P{card.idx} · '+('исключён' if card.idx in frame.excluded_participants else 'опубликовано' if card.published else 'пока не опубликовано')
         with st.expander(title,expanded=card.idx==frame.active):
             a,b=st.columns(2)
             a.metric('OHE vᵢ',vec_text(card.vote,frame.options))
@@ -174,6 +278,14 @@ def render_checks(frame:Frame) -> None:
 
 def render_reconstruction(frame:Frame) -> None:
     st.subheader('Реконструкция Лагранжем · покоординатно')
+    if frame.consensus_status == 'terminated_too_few':
+        st.error('Реконструкция запрещена: осталось меньше двух участников.')
+        return
+    if frame.phase in ('exclude','restart','redeal'):
+        st.warning('Участники только что исключены: пересчёт долей ещё не выполнен.')
+        return
+    if frame.consensus_status in ('terminated_too_few','max_rounds','restarted'):
+        st.info('Финальный результат не утверждён; ниже — только текущие публикации.')
     published={d.sender:d.value for d in frame.board_deals}
     available=sorted(published)
     if not available:
@@ -192,8 +304,8 @@ def render_reconstruction(frame:Frame) -> None:
         else:
             st.success(f'Восстановленный вектор счётчиков: {counts}')
             st.bar_chart([{'Вариант':frame.options[k], 'Голосов':counts[k]} for k in range(len(counts))], x='Вариант', y='Голосов')
-            if sum(counts)!=frame.n:
-                st.warning('Сумма счётчиков не равна n. Это признак аномалии, '
+            if sum(counts)!=len(frame.active_participants or tuple(range(1,frame.n+1))):
+                st.warning('Сумма счётчиков не равна количеству активных. Это признак аномалии, '
                            'но выполнение условия ΣS=n не доказывает корректность каждого OHE.')
     elif len(selected)<frame.t:
         st.warning(f'Выбрано {len(selected)} < t={frame.t}; нельзя восстановить вектор.')
@@ -207,7 +319,7 @@ def render_reconstruction(frame:Frame) -> None:
     if len(possible)>1:
         st.error(f'Проверка согласованности: {len(possible)} различных векторов '
                  'получены из t-наборов. Нет единого итога.')
-    if len(available)==frame.n and frame.step==frame.total_steps:
+    if len(available)>=frame.t and (frame.phase in ('reconstruct','reaggregate','finalize')):
         with st.expander(f'Все C({frame.n},{frame.t}) комбинаций',expanded=True):
             rows=[]
             for subset in combinations(available,frame.t):
@@ -220,8 +332,8 @@ def render_reconstruction(frame:Frame) -> None:
 
 def main() -> None:
     st.title('🔐 ConfidentialVoting · OHE Protocol Debugger')
-    st.caption('Голоса по нескольким вариантам: один выбор → one-hot-вектор → '
-               'm многочленов Шамира → m публичных счётчиков.')
+    st.caption('OHE → Шамир → Core Board (f_i(j), F(j), MaliciousReport) → '
+               'строгое большинство → исключение → пересчёт / перезапуск.')
     try:
         trace,key=load_trace()
     except (ValueError,TypeError,KeyError) as exc:
@@ -234,7 +346,7 @@ def main() -> None:
     st.session_state['step']=max(1,min(st.session_state['step'],len(trace.snapshots)))
     c1,c2,c3,c4=st.columns(4)
     c1.metric('Участники',trace.n)
-    c2.metric('Порог',trace.t)
+    c2.metric('Начальный порог',trace.t)
     c3.metric('Варианты',len(trace.options))
     c4.metric('p',trace.p)
     st.write('**Варианты:** '+', '.join(f'{k}: {v}' for k,v in enumerate(trace.options)))
@@ -256,8 +368,9 @@ def main() -> None:
     st.slider('Шаг',1,len(trace.snapshots),key='step')
     snap=trace.snapshots[st.session_state['step']-1]
     frame=project(trace,snap,mode,selection)
-    st.info(f'Шаг {frame.step}/{frame.total_steps} · {frame.event}')
+    st.info(f'Шаг {frame.step}/{frame.total_steps} · t={frame.t} · {frame.event}')
     if mode=='god':render_attack(frame)
+    render_consensus(frame)
     left,right=st.columns([1.7,1.0])
     with left:
         st.subheader('Граф передачи ВЕКТОРОВ долей')
@@ -270,11 +383,22 @@ def main() -> None:
         for s in trace.snapshots[:frame.step]:
             st.text(f'{s.step:02d}. '+safe_description(s.phase,s.active,trace.n,trace.t))
     with board_col:
-        st.subheader('BulletinBoard · публичные векторы')
+        st.subheader('Core BulletinBoard · журнал')
+        if frame.board_events:
+            st.dataframe([{'ID':id_, 'Тип':kind, 'От P':sender,
+                           'К P':receiver if receiver is not None else 'всем',
+                           'Раунд':rnd}
+                          for id_,kind,sender,receiver,rnd in frame.board_events],
+                         hide_index=True,use_container_width=True)
+            st.caption('PRIVATE_SHARE: на доске пока открытый вектор; '
+                       'participant видит только адресованные ему значения. '
+                       'С будущим шифрованием все увидят ciphertext.')
         if frame.board_deals:
-            st.dataframe([{'Участник':d.sender,'Вектор sⱼ':vec_text(d.value,frame.options)}
+            st.markdown('**Последние опубликованные F(j):**')
+            st.dataframe([{'Участник':d.sender,'F(j)':vec_text(d.value,frame.options)}
                           for d in frame.board_deals],hide_index=True,use_container_width=True)
-        else:st.caption('Публикаций пока нет.')
+        elif not frame.board_events:
+            st.caption('Записей пока нет.')
     st.divider()
     render_checks(frame)
     st.divider()

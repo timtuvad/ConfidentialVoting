@@ -16,6 +16,15 @@ class Deal:
 
 
 @dataclass(frozen=True)
+class MaliciousReport:
+    round_id: int
+    reporter: int
+    suspect: int
+    is_malicious: bool
+    evidence_ref: str | None = None
+
+
+@dataclass(frozen=True)
 class Snapshot:
     step: int
     phase: str
@@ -32,6 +41,28 @@ class Snapshot:
     aggregate_F: Coefficients | None
     checks: dict[str, str] = field(default_factory=dict)
     attack_info: dict[str, object] | None = None
+    active_participants: tuple[int, ...] = ()
+    excluded_participants: tuple[int, ...] = ()
+    round_number: int = 0
+    reports: tuple[MaliciousReport, ...] = ()
+    new_reports: tuple[MaliciousReport, ...] = ()
+    tallies: tuple[tuple[int, int], ...] = ()
+    new_exclusions: tuple[int, ...] = ()
+    final_result: Vector | None = None
+    consensus_status: str = 'not_started'
+    current_threshold: int | None = None
+    board_events: tuple[tuple[int, str, int, int | None, int], ...] = ()
+    round_electorate: tuple[int, ...] = ()
+    session_phase: str = 'registration'
+    membership_events: tuple[tuple[str, int, int | None], ...] = ()
+
+    @property
+    def opinions(self):
+        return self.reports
+
+    @property
+    def new_opinions(self):
+        return self.new_reports
 
 
 @dataclass(frozen=True)
@@ -63,7 +94,7 @@ def parse_trace(data: bytes | str) -> Trace:
 
     def polys(x):
         p0 = tuple(tuple(int(v) for v in coeffs) for coeffs in x)
-        if len(p0) != m or any(len(poly) != t for poly in p0):
+        if len(p0) != m or any(not 2 <= len(poly) <= t for poly in p0):
             raise ValueError('Неверный формат коэффициентов')
         return p0
 
@@ -75,6 +106,14 @@ def parse_trace(data: bytes | str) -> Trace:
         if len(arr) != n+1 or arr[0] is not None:
             raise ValueError(f'{name}: ожидается n+1 элементов; первый = null')
         return tuple(None if v is None else convert(v) for v in arr)
+
+    def reports(items):
+        return tuple(MaliciousReport(
+            int(v.get('round_id', v.get('round_number'))),
+            int(v.get('reporter', v.get('observer'))),
+            int(v['suspect']), bool(v.get('is_malicious', v.get('accuses'))),
+            v.get('evidence_ref'))
+            for v in items)
 
     shots = []
     for snap in raw['snapshots']:
@@ -90,6 +129,22 @@ def parse_trace(data: bytes | str) -> Trace:
             tuple(int(i) for i in snap.get('published_senders', [])), recon,
             None if snap.get('aggregate_F') is None else polys(snap['aggregate_F']),
             dict(snap.get('checks', {})), snap.get('attack_info'),
+            tuple(int(i) for i in snap.get('active_participants', ())),
+            tuple(int(i) for i in snap.get('excluded_participants', ())),
+            int(snap.get('round_number', 0)),
+            reports(snap.get('reports', snap.get('opinions', []))),
+            reports(snap.get('new_reports', snap.get('new_opinions', []))),
+            tuple((int(i), int(c)) for i, c in snap.get('tallies', [])),
+            tuple(int(i) for i in snap.get('new_exclusions', [])),
+            None if snap.get('final_result') is None else vector(snap['final_result']),
+            str(snap.get('consensus_status', 'not_started')),
+            None if snap.get('current_threshold') is None else int(snap['current_threshold']),
+            tuple((int(e[0]), str(e[1]), int(e[2]), None if e[3] is None else int(e[3]), int(e[4]))
+                  for e in snap.get('board_events', ())),
+            tuple(int(i) for i in snap.get('round_electorate', ())),
+            str(snap.get('session_phase', 'registration')),
+            tuple((str(e[0]), int(e[1]), None if e[2] is None else int(e[2]))
+                  for e in snap.get('membership_events', ())),
         ))
     if not shots or [s.step for s in shots] != list(range(1, len(shots)+1)):
         raise ValueError('Снимки должны идти последовательно 1, 2, ...')

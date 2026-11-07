@@ -3,13 +3,17 @@ from __future__ import annotations
 from dataclasses import replace
 from itertools import combinations
 from random import Random
+from datetime import datetime
+from typing import Callable
 
 from src.core.utils import is_prime
 from src.core.vector import one_hot, VectorShare, reconstruct_vector, interpolate_vector_polynomials
-from .board import BulletinBoard
+from src.core.board import Board, InMemoryBoard, PrivateShare, PublicShare
+from src.core.voting import VotingSession, VotingSchedule
 from .participant import Participant
 from .models import Deal, Snapshot
 from .invariants import check_snapshot
+from .consensus import ConsensusCoordinator, Detector
 
 
 class Simulation:
@@ -30,7 +34,13 @@ class Simulation:
                  options: list[str] | tuple[str, ...] = ('A', 'B', 'C'),
                  scenario: str = 'honest', attacker: int = 2, attack_delta: int = 7,
                  target_receiver: int | None = None, invalid_secret: int = 3,
-                 attack_option: int | None = None):
+                 attack_option: int | None = None,
+                 enable_consensus: bool = False,
+                 detector: Detector | None = None,
+                 max_consensus_rounds: int = 10,
+                 board: Board | None = None,
+                 schedule: VotingSchedule | None = None,
+                 clock: Callable[[], datetime] | None = None):
         if not (2 <= t <= n <= 10 and is_prime(p) and p > n):
             raise ValueError('Необходимо 2 ≤ t ≤ n ≤ 10, p > n, p — простое')
         options = tuple(options)
@@ -71,12 +81,20 @@ class Simulation:
         ballots = [list(one_hot(choice, m)) for choice in choices]
         if scenario == 'invalid_vote':
             ballots[attacker - 1][self.configured_choices[attacker - 1]] = invalid_secret
+        self.board = board if board is not None else InMemoryBoard()
+        # Регистрация и начало сессии происходят ДО создания участников.
+        self.session = VotingSession(t, self.board, range(1, n + 1),
+                                     schedule=schedule, clock=clock)
+        self.session.start()
         self.participants = [None] + [
             Participant(i, n, t, p, tuple(ballots[i-1]), rng)
             for i in range(1, n + 1)
         ]
-        self.board = BulletinBoard()
         self.snapshots = self._run()
+        self.consensus = None
+        if enable_consensus:
+            self.consensus = ConsensusCoordinator(self, detector, max_consensus_rounds)
+            self.snapshots = self.consensus.extend(self.snapshots)
 
     def _run(self) -> tuple[Snapshot, ...]:
         n, t, p = self.n, self.t, self.p
@@ -110,6 +128,19 @@ class Simulation:
                 shares=tuple(shares), published_senders=tuple(published),
                 reconstructed=reconstructed, aggregate_F=aggregate,
                 attack_info=None if incident is None else dict(incident),
+                current_threshold=t,
+                active_participants=self.session.active_ids,
+                excluded_participants=self.session.excluded_ids,
+                session_phase=self.session.phase.value,
+                membership_events=tuple((e.kind, e.participant_id, e.round_id)
+                                        for e in self.session.registry.events),
+                board_events=tuple(
+                    (e.message_id,
+                     'PRIVATE_SHARE' if isinstance(e.message, PrivateShare) else 'PUBLIC_SHARE',
+                     e.message.sender,
+                     e.message.receiver if isinstance(e.message, PrivateShare) else None,
+                     e.message.round_id)
+                    for e in self.board.read_all()),
             )
             shots.append(replace(s, checks=check_snapshot(s, n, t, p)))
 
@@ -129,7 +160,11 @@ class Simulation:
                         'delta': self.attack_delta,
                     }
                     deal = Deal(i, deal.receiver, tuple(altered))
-                self.participants[deal.receiver].receive(deal)
+                # Сначала публикуем в Board, затем получатель читает по индексу.
+                self.board.post_private_share(PrivateShare(0, deal.sender, deal.receiver, deal.value))
+                stored = next(msg for msg in self.board.get_private_shares(deal.receiver, 0)
+                              if msg.sender == deal.sender)
+                self.participants[deal.receiver].receive(Deal(stored.sender, stored.receiver, stored.value))
                 history.append(deal)
                 new.append(deal)
             capture('deal', i, f'Участник {i} разослал доли по {len(self.options)} координатам', tuple(new))
@@ -148,17 +183,19 @@ class Simulation:
                     'delta': self.attack_delta,
                 }
                 deal = Deal(j, -1, tuple(altered))
-            self.board.post(deal)
+            self.board.post_public_share(PublicShare(0, deal.sender, deal.value))
             history.append(deal)
             published.append(j)
             capture('publish', j, f'Участник {j} опубликовал вектор s_{j}', (deal,))
 
-        points = {d.sender: VectorShare(d.sender, d.value, p) for d in self.board.read()}
+        points = {d.sender: VectorShare(d.sender, d.value, p)
+                  for d in self.board.get_public_shares(0)}
         results = {
             ids: reconstruct_vector([points[i] for i in ids], t)
             for ids in combinations(range(1, n + 1), t)
         }
         aggregate = interpolate_vector_polynomials([points[j] for j in range(1, t + 1)], t)
+        self.session.mark_reconstructed()
         capture('reconstruct', None, 'Наблюдатель восстановил счётчики каждого варианта',
                 reconstructed=results, aggregate=aggregate)
         assert len(shots) == 2 * n + 3
