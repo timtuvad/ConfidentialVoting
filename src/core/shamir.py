@@ -2,6 +2,7 @@ from typing import List
 from src.core.algebra.field import F_pElement
 from src.core.algebra.polynomial import F_pPolynomial
 from src.core.algebra.interpolation import LagrangeInterpolation
+from src.core.share import Share
 from src.core.verifiable_share import VerifiableShare
 from src.core.environment import CryptographyEnvironment
 from src.core.commitments import PolynomialCommitments
