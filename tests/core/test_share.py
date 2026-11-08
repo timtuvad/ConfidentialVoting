@@ -1,8 +1,8 @@
-"""Тесты модуля src/core/secret_share.py — класс Share (доля секрета).
+"""Тесты модуля src/core/share.py — класс Share (доля секрета).
 
 Стиль написания — как в tests/core/test_utils.py: фикстуры + параметризация pytest.
 Проверки выполняются через публичный API (свойства x / value / p, ==, !=,
-hash(), str(), repr(), арифметические операторы) — без обращения к приватным полям.
+hash(), str(), repr(), операторы + и -) — без обращения к приватным полям.
 
 Проверяемый функционал (на каждый элемент — не менее 5 тестов):
     * __init__          — пара (x, value) из одного поля; проверка типов
@@ -12,22 +12,20 @@ hash(), str(), repr(), арифметические операторы) — бе
     * __hash__          — хешируемость, согласованность с __eq__;
     * __str__, __repr__ — "f(x)=value" и "Share(x, value)";
     * __pos__, __neg__  — унарные операции;
-    * __add__, __sub__, __mul__, __truediv__ — арифметика долей в одной точке,
-                          TypeError для разных x и для чужих типов;
-    * __pow__           — возведение значения доли в степень;
-    * интеграция        — согласованность с F_pPolynomial.share_at и
-                          LagrangeInterpolation;
-    * служебные нюансы — отсутствие __bool__/__len__/__iter__/__getitem__/
-                          __radd__/abs()/~/////%/@, неизменяемость операндов.
+    * make              — статический конструктор Share.make(f, x) = Share(x, f(x)),
+                          замена удалённого метода polynomial.share_at(x);
+    * __add__, __sub__  — арифметика долей в одной точке:
+                          ValueError для разных x, TypeError для чужих типов;
+    * интеграция        — согласованность с LagrangeInterpolation;
+    * служебные нюансы — неизменяемость операндов.
 
 Особенности реализации, зафиксированные тестами:
     * __eq__ сравнивает точку и значение доли (проверка типа через isinstance);
-    * арифметика определена только для долей с ОДИНАКОВЫМ x: точка результата
-      наследуется от левого операнда, значения складываются/вычитаются/
-      умножаются/делятся как элементы поля;
-    * __pow__ принимает показатель любого типа, который принимает
-      F_pElement.__pow__ (то есть int, включая bool), и не проверяет x;
-    * __bool__ отсутствует -> любая доля (даже со значением 0) истинна;
+    * арифметика (+, -) определена только для долей с ОДИНАКОВЫМ x: точка результата
+      наследуется от левого операнда, значения складываются/вычитаются как элементы поля;
+    * для разных x операции + и - бросают ValueError ("cannot + with two
+      shares with different x values: ..."), а для не-Share операнда —
+      TypeError ("unsupported operand type(s) for + ...");
     * x и value хранятся как есть (элементы поля неизменяемы).
 
 Конструктор проверяет аргументы через isinstance: x и value обязаны быть
@@ -299,13 +297,6 @@ def test_properties_are_stable(make_share, p, x, value):
     assert share.x == share.x
     assert share.value == share.value
     assert share.p == share.p
-
-
-@pytest.mark.parametrize("p", PRIMES)
-def test_public_api_of_secret_share(make_share, p):
-    share = make_share(p, 1 % p, 2 % p)
-    public_names = {name for name in dir(share) if not name.startswith("_")}
-    assert public_names == {"x", "value", "p"}
 
 
 # ===========================================================================
@@ -602,8 +593,8 @@ def test_add_of_opposite_shares_is_zero(make_share, p, x, value):
 @pytest.mark.parametrize("p, x1, x2, value", [
     (5, 1, 2, 3), (7, 0, 3, 4), (11, 5, 6, 7), (13, 7, 8, 9), (101, 1, 2, 3),
 ])
-def test_add_different_points_raises_type_error(make_share, p, x1, x2, value):
-    with pytest.raises(TypeError,
+def test_add_different_points_raises_value_error(make_share, p, x1, x2, value):
+    with pytest.raises(ValueError,
                        match="cannot \\+ with two shares with "
                        "different x values: "
                        f"f\\(\\({x1} mod {p}\\)\\)=\\({value} mod {p}\\) and "
@@ -615,12 +606,6 @@ def test_add_different_points_raises_type_error(make_share, p, x1, x2, value):
 def test_add_non_share_raises_type_error(make_share, other):
     with pytest.raises(TypeError, match="unsupported operand type"):
         make_share(5, 1, 2) + other
-
-
-@pytest.mark.parametrize("other", [1, 2, 5, 0])
-def test_int_plus_share_raises_type_error(make_share, other):
-    with pytest.raises(TypeError):
-        other + make_share(5, 1, 2)
 
 
 @pytest.mark.parametrize("p, x, value", [
@@ -679,8 +664,8 @@ def test_sub_is_anti_commutative(make_share, p, x, v1, v2):
 @pytest.mark.parametrize("p, x1, x2, value", [
     (5, 1, 2, 3), (7, 0, 3, 4), (11, 5, 6, 7), (13, 7, 8, 9), (101, 1, 2, 3),
 ])
-def test_sub_different_points_raises_type_error(make_share, p, x1, x2, value):
-    with pytest.raises(TypeError,
+def test_sub_different_points_raises_value_error(make_share, p, x1, x2, value):
+    with pytest.raises(ValueError,
                        match="cannot - with two shares with "
                        "different x values: "
                        f"f\\(\\({x1} mod {p}\\)\\)=\\({value} mod {p}\\) and "
@@ -695,222 +680,7 @@ def test_sub_non_share_raises_type_error(make_share, other):
 
 
 # ===========================================================================
-# 10. __mul__
-# ===========================================================================
-
-@pytest.mark.parametrize("p, x, v1, v2, expected", [
-    (5, 1, 2, 3, 1),
-    (5, 2, 0, 4, 0),
-    (7, 3, 3, 5, 1),
-    (11, 4, 4, 9, 3),
-    (13, 5, 6, 7, 3),
-    (2, 1, 1, 1, 1),
-    (101, 50, 30, 40, 89),
-])
-def test_mul_values_at_same_point(make_share, p, x, v1, v2, expected):
-    assert make_share(p, x, v1) * make_share(p, x, v2) == make_share(p, x, expected)
-
-
-@pytest.mark.parametrize("p, x, value", [
-    (5, 1, 2), (7, 3, 4), (11, 5, 6), (13, 7, 8), (101, 9, 10),
-])
-def test_mul_by_one_value_share_is_identity(make_share, p, x, value):
-    share = make_share(p, x, value)
-    assert share * make_share(p, x, 1) == share
-    assert make_share(p, x, 1) * share == share
-
-
-@pytest.mark.parametrize("p, x, value", [
-    (5, 1, 2), (7, 3, 4), (11, 5, 6), (13, 7, 8), (101, 9, 10),
-])
-def test_mul_by_zero_value_share_is_zero(make_share, p, x, value):
-    assert make_share(p, x, value) * make_share(p, x, 0) == make_share(p, x, 0)
-
-
-@pytest.mark.parametrize("p, x, v1, v2", [
-    (5, 1, 2, 3), (7, 3, 4, 5), (11, 5, 6, 7), (13, 7, 8, 9), (101, 9, 11, 12),
-])
-def test_mul_is_commutative(make_share, p, x, v1, v2):
-    assert (make_share(p, x, v1) * make_share(p, x, v2) ==
-            make_share(p, x, v2) * make_share(p, x, v1))
-
-
-@pytest.mark.parametrize("p, x1, x2, value", [
-    (5, 1, 2, 3), (7, 0, 3, 4), (11, 5, 6, 7), (13, 7, 8, 9), (101, 1, 2, 3),
-])
-def test_mul_different_points_raises_type_error(make_share, p, x1, x2, value):
-    with pytest.raises(TypeError,
-                       match="cannot \\* with two shares with "
-                       "different x values: "
-                       f"f\\(\\({x1} mod {p}\\)\\)=\\({value} mod {p}\\) and "
-                       f"f\\(\\({x2} mod {p}\\)\\)=\\({value} mod {p}\\)"):
-        make_share(p, x1, value) * make_share(p, x2, value)
-
-
-@pytest.mark.parametrize("other", NON_SHARE_VALUES + [F_pElement(5, 1)])
-def test_mul_non_share_raises_type_error(make_share, other):
-    with pytest.raises(TypeError, match="unsupported operand type"):
-        make_share(5, 1, 2) * other
-
-
-@pytest.mark.parametrize("other", [2, 3, 5])
-def test_int_times_share_raises_type_error(make_share, other):
-    with pytest.raises(TypeError):
-        other * make_share(5, 1, 2)
-
-
-# ===========================================================================
-# 11. __truediv__
-# ===========================================================================
-
-@pytest.mark.parametrize("p, x, v1, v2, expected", [
-    (5, 1, 2, 3, 4),
-    (7, 2, 3, 5, 2),
-    (11, 3, 4, 9, 9),
-    (13, 4, 6, 7, 12),
-    (2, 1, 1, 1, 1),
-    (101, 50, 30, 40, 26),
-])
-def test_div_values_at_same_point(make_share, p, x, v1, v2, expected):
-    assert make_share(p, x, v1) / make_share(p, x, v2) == make_share(p, x, expected)
-
-
-@pytest.mark.parametrize("p, x, value", [
-    (5, 1, 2), (7, 3, 4), (11, 5, 6), (13, 7, 8), (101, 9, 10),
-])
-def test_div_by_self_is_one(make_share, p, x, value):
-    share = make_share(p, x, value)
-    assert share / share == make_share(p, x, 1)
-
-
-@pytest.mark.parametrize("p, x, value", [
-    (5, 1, 2), (7, 3, 4), (11, 5, 6), (13, 7, 8), (101, 9, 10),
-])
-def test_div_zero_value_share(make_share, p, x, value):
-    assert make_share(p, x, 0) / make_share(p, x, value) == make_share(p, x, 0)
-
-
-@pytest.mark.parametrize("p, x, value", [
-    (5, 1, 2), (7, 3, 4), (11, 5, 6), (13, 7, 8), (101, 9, 10),
-])
-def test_div_by_zero_value_share_raises_zero_division_error(make_share, p, x, value):
-    with pytest.raises(ZeroDivisionError, match="cannot divide by zero"):
-        make_share(p, x, value) / make_share(p, x, 0)
-
-
-@pytest.mark.parametrize("p, x1, x2, value", [
-    (5, 1, 2, 3), (7, 0, 3, 4), (11, 5, 6, 7), (13, 7, 8, 9), (101, 1, 2, 3),
-])
-def test_div_different_points_raises_type_error(make_share, p, x1, x2, value):
-    with pytest.raises(TypeError,
-                       match="cannot / with two shares with "
-                       "different x values: "
-                       f"f\\(\\({x1} mod {p}\\)\\)=\\({value} mod {p}\\) and "
-                       f"f\\(\\({x2} mod {p}\\)\\)=\\({value} mod {p}\\)"):
-        make_share(p, x1, value) / make_share(p, x2, value)
-
-
-@pytest.mark.parametrize("other", NON_SHARE_VALUES + [F_pElement(5, 1)])
-def test_div_non_share_raises_type_error(make_share, other):
-    with pytest.raises(TypeError, match="unsupported operand type"):
-        make_share(5, 1, 2) / other
-
-
-@pytest.mark.parametrize("p, x, v1, v2", [
-    (5, 1, 2, 3), (7, 3, 4, 5), (11, 5, 6, 7), (13, 7, 8, 9), (101, 9, 11, 12),
-])
-def test_mul_then_div_restores_share(make_share, p, x, v1, v2):
-    first = make_share(p, x, v1)
-    second = make_share(p, x, v2)
-    assert (first * second) / second == first
-
-
-# ===========================================================================
-# 12. __pow__
-# ===========================================================================
-
-@pytest.mark.parametrize("p, x, value, exp, expected", [
-    (5, 1, 2, 2, 4),
-    (5, 1, 2, 3, 3),
-    (7, 3, 3, 2, 2),
-    (7, 3, 3, 3, 6),
-    (11, 5, 4, 2, 5),
-    (13, 7, 6, 2, 10),
-    (2, 1, 1, 5, 1),
-])
-def test_pow_raises_value_to_power(make_share, p, x, value, exp, expected):
-    result = make_share(p, x, value) ** exp
-    assert result == make_share(p, x, expected)
-    assert result.x == F_pElement(p, x)
-
-
-@pytest.mark.parametrize("p, x, value", [
-    (5, 1, 2), (7, 3, 4), (11, 5, 6), (13, 7, 8), (101, 9, 10),
-])
-def test_pow_zero_exponent_gives_one(make_share, p, x, value):
-    assert make_share(p, x, value) ** 0 == make_share(p, x, 1)
-
-
-@pytest.mark.parametrize("p, x, value, expected", [
-    (5, 1, 2, 3),
-    (7, 3, 3, 5),
-    (11, 5, 4, 3),
-    (13, 7, 6, 11),
-    (101, 9, 10, 91),
-])
-def test_pow_minus_one_is_inverse(make_share, p, x, value, expected):
-    assert make_share(p, x, value) ** -1 == make_share(p, x, expected)
-
-
-@pytest.mark.parametrize("p, x", [
-    (5, 1), (7, 3), (11, 5), (13, 7), (101, 9),
-])
-def test_pow_zero_value_negative_exponent_raises_value_error(make_share, p, x):
-    with pytest.raises(ValueError):
-        make_share(p, x, 0) ** -1
-
-
-@pytest.mark.parametrize("exp", [2.0, "2", None, [2], 3.5])
-def test_pow_non_int_exponent_raises_type_error(make_share, exp):
-    with pytest.raises(TypeError, match="unsupported operand type"):
-        make_share(5, 1, 2) ** exp
-
-
-@pytest.mark.parametrize("exp, expected", [(True, 2), (False, 1)])
-def test_pow_bool_exponent_is_accepted_as_int(make_share, exp, expected):
-    # нюанс: F_pElement.__pow__ проверяет isinstance(exp, int), bool — подкласс int
-    assert make_share(5, 1, 2) ** exp == make_share(5, 1, expected)
-
-
-@pytest.mark.parametrize("p, x, value", [
-    (5, 1, 2), (7, 3, 4), (11, 5, 6), (13, 7, 8), (101, 9, 10),
-])
-def test_pow_does_not_mutate_share(make_share, p, x, value):
-    share = make_share(p, x, value)
-    _ = share ** 3
-    assert share == make_share(p, x, value)
-
-
-@pytest.mark.parametrize("p, x, value, e1, e2", [
-    (5, 1, 2, 1, 2), (7, 3, 4, 2, 3), (11, 5, 6, 1, 4), (13, 7, 8, 2, 2),
-    (101, 9, 10, 3, 1),
-])
-def test_pow_adds_exponents(make_share, p, x, value, e1, e2):
-    share = make_share(p, x, value)
-    assert (share ** e1) * (share ** e2) == share ** (e1 + e2)
-
-
-@pytest.mark.parametrize("p, x, value", [
-    (5, 1, 2), (7, 3, 4), (11, 5, 6), (13, 7, 8), (101, 9, 10),
-])
-def test_pow_returns_secret_share(make_share, p, x, value):
-    result = make_share(p, x, value) ** 4
-    assert isinstance(result, Share)
-    assert result.p == p
-
-
-# ===========================================================================
-# 13. Интеграция с многочленами и интерполяцией
+# 10. Интеграция с многочленами и интерполяцией
 # ===========================================================================
 
 @pytest.mark.parametrize("p, coeffs, x", [
@@ -920,7 +690,7 @@ def test_pow_returns_secret_share(make_share, p, x, value):
 def test_share_from_polynomial_matches_manual_share(make_poly, p, coeffs, x):
     poly = make_poly(p, coeffs)
     point = F_pElement(p, x)
-    assert poly.share_at(point) == Share(point, poly(point))
+    assert Share.make(poly, point) == Share(point, poly(point))
 
 
 @pytest.mark.parametrize("p, coeffs, xs", [
@@ -933,7 +703,7 @@ def test_share_from_polynomial_matches_manual_share(make_poly, p, coeffs, x):
 def test_shares_of_polynomial_are_accepted_by_interpolation(make_poly, p, coeffs, xs):
     from src.core.algebra.interpolation import LagrangeInterpolation
     poly = make_poly(p, coeffs)
-    shares = [poly.share_at(F_pElement(p, x)) for x in xs]
+    shares = [Share.make(poly, F_pElement(p, x)) for x in xs]
     interpolation = LagrangeInterpolation(shares)
     assert interpolation.lagrange_polynomial == poly
     assert interpolation.shares == shares
@@ -949,7 +719,7 @@ def test_shares_of_polynomial_are_accepted_by_interpolation(make_poly, p, coeffs
 def test_interpolation_recovers_secret_from_shares(make_poly, p, coeffs, xs):
     from src.core.algebra.interpolation import LagrangeInterpolation
     poly = make_poly(p, coeffs)
-    shares = [poly.share_at(F_pElement(p, x)) for x in xs]
+    shares = [Share.make(poly, F_pElement(p, x)) for x in xs]
     secret = LagrangeInterpolation(shares)(F_pElement.zero(p))
     assert secret.value == F_pElement(p, coeffs[0])
     assert secret.x == F_pElement.zero(p)
@@ -962,7 +732,7 @@ def test_interpolation_recovers_secret_from_shares(make_poly, p, coeffs, xs):
 def test_share_str_and_repr_from_polynomial(make_poly, p, coeffs, x):
     poly = make_poly(p, coeffs)
     point = F_pElement(p, x)
-    share = poly.share_at(point)
+    share = Share.make(poly, point)
     assert str(share) == f"f({point})={poly(point)}"
     assert repr(share) == f"Share({point}, {poly(point)})"
 
@@ -976,81 +746,14 @@ def test_share_str_and_repr_from_polynomial(make_poly, p, coeffs, x):
 ])
 def test_sum_of_shares_equals_share_of_sum(make_poly, p, a, b, x):
     point = F_pElement(p, x)
-    left = make_poly(p, a).share_at(point) + make_poly(p, b).share_at(point)
-    right = (make_poly(p, a) + make_poly(p, b)).share_at(point)
+    left = Share.make(make_poly(p, a), point) + Share.make(make_poly(p, b), point)
+    right = Share.make(make_poly(p, a) + make_poly(p, b), point)
     assert left == right
 
 
 # ===========================================================================
-# 14. Служебные нюансы
+# 11. Прочие нюансы
 # ===========================================================================
-
-@pytest.mark.parametrize("p, x, value", [
-    (5, 1, 0), (7, 3, 0), (11, 5, 0), (13, 7, 0), (2, 1, 0),
-])
-def test_share_with_zero_value_is_truthy(make_share, p, x, value):
-    # __bool__ не определён -> любая доля истинна
-    assert bool(make_share(p, x, value)) is True
-
-
-@pytest.mark.parametrize("p, x, value", [
-    (5, 1, 2), (7, 3, 4), (11, 5, 6), (13, 7, 8), (101, 9, 10),
-])
-def test_share_is_truthy(make_share, p, x, value):
-    assert bool(make_share(p, x, value)) is True
-    assert make_share(p, x, value)
-
-
-@pytest.mark.parametrize("p, x, value", [
-    (5, 1, 2), (7, 3, 4), (11, 5, 6), (13, 7, 8), (101, 9, 10),
-])
-def test_len_iteration_and_indexing_are_not_supported(make_share, p, x, value):
-    share = make_share(p, x, value)
-    with pytest.raises(TypeError):
-        len(share)
-    with pytest.raises(TypeError):
-        iter(share)
-    with pytest.raises(TypeError):
-        share[0]
-
-
-@pytest.mark.parametrize("p, x, value", [
-    (5, 1, 2), (7, 3, 4), (11, 5, 6), (13, 7, 8), (101, 9, 10),
-])
-def test_abs_invert_floordiv_mod_matmul_are_not_supported(
-        make_share, p, x, value):
-    share = make_share(p, x, value)
-    with pytest.raises(TypeError):
-        abs(share)
-    with pytest.raises(TypeError):
-        ~share
-    with pytest.raises(TypeError):
-        share // share
-    with pytest.raises(TypeError):
-        share % share
-    with pytest.raises(TypeError):
-        share @ share
-
-
-@pytest.mark.parametrize("p, x, value", [
-    (5, 1, 2), (7, 3, 4), (11, 5, 6), (13, 7, 8), (101, 9, 10),
-])
-def test_share_cannot_be_converted_to_int(make_share, p, x, value):
-    with pytest.raises(TypeError):
-        int(make_share(p, x, value))
-
-
-@pytest.mark.parametrize("p, x, value", [
-    (5, 1, 2), (7, 3, 4), (11, 5, 6), (13, 7, 8), (101, 9, 10),
-])
-def test_share_is_not_ordered(make_share, p, x, value):
-    first = make_share(p, x, value)
-    second = make_share(p, x, value + 1)
-    with pytest.raises(TypeError):
-        first < second
-    with pytest.raises(TypeError):
-        sorted([first, second])
-
 
 @pytest.mark.parametrize("p, x, value", [
     (5, 1, 2), (7, 3, 4), (11, 5, 6), (13, 7, 8), (101, 9, 10),
@@ -1059,7 +762,6 @@ def test_unary_operations_do_not_mutate_share(make_share, p, x, value):
     share = make_share(p, x, value)
     _ = +share
     _ = -share
-    _ = share ** 2
     assert share == make_share(p, x, value)
     assert share.x == F_pElement(p, x)
     assert share.value == F_pElement(p, value)
@@ -1070,7 +772,7 @@ def test_shares_of_zero_polynomial(prime):
     p = prime
     poly = F_pPolynomial(p)
     for value in range(min(p, 5)):
-        share = poly.share_at(F_pElement(p, value))
+        share = Share.make(poly, F_pElement(p, value))
         assert share.value == F_pElement.zero(p)
         assert share.x == F_pElement(p, value)
         assert share.p == p
@@ -1082,8 +784,143 @@ def test_negation_of_share_from_polynomial(prime):
     p = prime
     poly = F_pPolynomial(p, coefficients=[F_pElement(p, 1), F_pElement(p, 2)])
     point = F_pElement.one(p)
-    share = poly.share_at(point)
+    share = Share.make(poly, point)
     negated = -share
     assert negated.x == share.x
     assert negated.value == -share.value
     assert negated == Share(point, -poly(point))
+
+
+# ===========================================================================
+# 12. Share.make(f, x) — статический конструктор доли
+# ===========================================================================
+
+@pytest.mark.parametrize("p, coeffs, x", [
+    (5, [1, 2, 3], 0),
+    (5, [1, 2], 4),
+    (7, [6, 5], 3),
+    (11, [10], 7),
+    (13, [0, 1], 12),
+    (2, [1, 1], 1),
+])
+def test_make_returns_share_with_point_and_value(make_poly, p, coeffs, x):
+    poly = make_poly(p, coeffs)
+    point = F_pElement(p, x)
+    share = Share.make(poly, point)
+    assert isinstance(share, Share)
+    assert share.x == point
+    assert share.value == poly(point)
+    assert share.p == p
+
+
+@pytest.mark.parametrize("p, coeffs, x", [
+    (5, [1, 2], 3), (7, [3, 4], 5), (11, [9, 8], 2), (13, [5, 6], 7),
+    (101, [1, 2], 50),
+])
+def test_make_equals_manual_share(make_poly, p, coeffs, x):
+    poly = make_poly(p, coeffs)
+    point = F_pElement(p, x)
+    assert Share.make(poly, point) == Share(point, poly(point))
+    assert hash(Share.make(poly, point)) == hash(Share(point, poly(point)))
+
+
+@pytest.mark.parametrize("p, coeffs, x, expected", [
+    (5, [1, 2], 3, 2),
+    (5, [3], 4, 3),
+    (7, [6, 5, 4], 2, 4),
+    (11, [1, 2, 3], 3, 1),
+    (13, [12, 1], 12, 11),
+])
+def test_make_value_matches_expected(make_poly, p, coeffs, x, expected):
+    share = Share.make(make_poly(p, coeffs), F_pElement(p, x))
+    assert share.value == F_pElement(p, expected)
+    assert share.x == F_pElement(p, x)
+
+
+@pytest.mark.parametrize("prime", PRIMES)
+def test_make_at_zero_returns_least_coefficient(prime):
+    p = prime
+    least = F_pElement(p, 1)
+    poly = F_pPolynomial(
+        p, coefficients=[least, F_pElement(p, 2), F_pElement(p, 3)])
+    share = Share.make(poly, F_pElement.zero(p))
+    assert share.x == F_pElement.zero(p)
+    assert share.value == least
+
+
+@pytest.mark.parametrize("prime", PRIMES)
+def test_make_of_zero_polynomial(prime):
+    p = prime
+    poly = F_pPolynomial(p)
+    for value in range(min(p, 5)):
+        point = F_pElement(p, value)
+        share = Share.make(poly, point)
+        assert share.x == point
+        assert share.value == F_pElement.zero(p)
+        assert share == Share(point, F_pElement.zero(p))
+
+
+@pytest.mark.parametrize("other", NON_SHARE_VALUES)
+def test_make_with_non_element_raises_type_error(make_poly, other):
+    with pytest.raises(TypeError,
+                       match="polynomial argument must be a F_pElement"):
+        Share.make(make_poly(5, [1, 2]), other)
+
+
+@pytest.mark.parametrize("p, other_p", FIELD_PAIRS)
+def test_make_with_element_of_other_field_raises_type_error(make_poly, p, other_p):
+    with pytest.raises(TypeError,
+                       match="polynomial argument must be in the same field "
+                             "as the polynomial"):
+        Share.make(make_poly(p, [1, 2]), F_pElement(other_p, 1))
+
+
+@pytest.mark.parametrize("other", [5, None, "poly", 3.5, [1], object()])
+def test_make_with_non_polynomial_raises_type_error(other):
+    with pytest.raises(TypeError):
+        Share.make(other, F_pElement(5, 1))
+
+
+@pytest.mark.parametrize("p, coeffs", [
+    (5, [1, 2]), (7, [3, 4]), (2, [1, 1]), (11, [9, 8]), (13, [1, 0, 2]),
+])
+def test_make_does_not_mutate_polynomial(make_poly, p, coeffs):
+    poly = make_poly(p, coeffs)
+    for value in range(min(p, 5)):
+        Share.make(poly, F_pElement(p, value))
+    assert poly == make_poly(p, coeffs)
+    assert poly.degree == make_poly(p, coeffs).degree
+
+
+@pytest.mark.parametrize("p, coeffs, x", [
+    (5, [1, 2], 1), (7, [3], 2), (11, [9, 8], 3), (13, [5], 4), (101, [1, 2], 5),
+])
+def test_make_returns_new_object_each_call(make_poly, p, coeffs, x):
+    poly = make_poly(p, coeffs)
+    point = F_pElement(p, x)
+    assert Share.make(poly, point) is not Share.make(poly, point)
+    assert Share.make(poly, point) == Share.make(poly, point)
+
+
+@pytest.mark.parametrize("p, coeffs", [
+    (5, [1, 2, 3]), (7, [6, 5]), (11, [10, 1, 2]), (13, [1, 0, 2]), (101, [7, 8]),
+])
+def test_make_at_distinct_points_have_distinct_x(make_poly, p, coeffs):
+    poly = make_poly(p, coeffs)
+    points = [F_pElement(p, value) for value in range(min(p, 5))]
+    shares = [Share.make(poly, point) for point in points]
+    assert {share.x for share in shares} == set(points)
+
+
+@pytest.mark.parametrize("p, coeffs, x", [
+    (5, [1, 2], 3), (7, [3, 4], 5), (11, [9, 1], 2), (13, [5, 6], 7),
+    (101, [1, 2], 50),
+])
+def test_make_string_representations(make_poly, p, coeffs, x):
+    poly = make_poly(p, coeffs)
+    point = F_pElement(p, x)
+    share = Share.make(poly, point)
+    assert str(share) == f"f({point})={poly(point)}"
+    assert repr(share) == f"Share({point}, {poly(point)})"
+
+

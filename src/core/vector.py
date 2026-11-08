@@ -72,7 +72,7 @@ class VectorPolynomial:
         if not 1 <= x < self.p:
             raise ValueError('Точка не в диапазоне F_p\\{0}')
         point = F_pElement(self.p, x)
-        return VectorShare(x, tuple(poly.share_at(point).value.value
+        return VectorShare(x, tuple(Share.make(poly, point).value.value
                                     for poly in self.polynomials), self.p)
 
 

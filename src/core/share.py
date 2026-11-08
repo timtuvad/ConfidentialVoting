@@ -1,9 +1,19 @@
 from src.core.algebra.field import F_pElement
 from src.core.algebra.polynomial import F_pPolynomial
 
-# Известное значение многочлена f(x) = value
-# Сам многочлен f неизвестен
 class Share:
+    """
+    Представляет известное значение некоторого многочлена f(x) = value.
+
+    Сам многочлен при этом неизвестен, известна только **доля секрета**.
+
+    С объектами `Share` (долями секрета) можно выполнять арифметические \
+    операции (сложение и вычитание), не зная самих многочленов.
+
+    Attributes:
+        x (F_pElement): Точка x, в которой известно значение.
+        value (F_pElement): Значение f(x) = value.
+    """
 
     def __init__(self, x: F_pElement, value: F_pElement):
         if not isinstance(x, F_pElement):
@@ -30,8 +40,8 @@ class Share:
         return self._x.p
 
     @staticmethod
-    def make(f: F_pPolynomial, x: F_pElement):
-        return Share(x, f(x))
+    def make(f: F_pPolynomial, x: F_pElement) -> "Share":
+        return Share._new(x, f(x))
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, Share):
@@ -45,25 +55,32 @@ class Share:
     def __hash__(self) -> int:
         return hash((self._x, self._value))
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"f({self._x})={self._value}"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Share({self._x}, {self._value})"
 
     def __pos__(self):
         return self
     
     def __neg__(self):
-        return Share(self._x, -self._value)
+        return Share._new(self._x, -self._value)
 
     def __add__(self, other):
         self.__check_types(other, "+")
-        return Share(self._x, self._value + other._value)
+        return Share._new(self._x, self._value + other._value)
 
     def __sub__(self, other):
         self.__check_types(other, "-")
-        return Share(self._x, self._value - other._value)
+        return Share._new(self._x, self._value - other._value)
+
+    @classmethod
+    def _new(cls, x: F_pElement, value: F_pElement) -> "Share":
+        obj = cls.__new__(cls)
+        obj._x = x
+        obj._value = value
+        return obj
 
     def __check_types(self, other, operation: str):
         if not isinstance(other, Share):
@@ -71,5 +88,5 @@ class Share:
                             f"'{self.__class__.__name__}' and "
                             f"'{other.__class__.__name__}'")
         if self._x != other._x:
-            raise TypeError(f"cannot {operation} with two shares with "
-                            f"different x values: {self} and {other}")
+            raise ValueError(f"cannot {operation} with two shares with "
+                             f"different x values: {self} and {other}")

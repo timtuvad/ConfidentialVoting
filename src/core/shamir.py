@@ -1,37 +1,39 @@
 from typing import List
-from src.core.share import Share
 from src.core.algebra.field import F_pElement
 from src.core.algebra.polynomial import F_pPolynomial
 from src.core.algebra.interpolation import LagrangeInterpolation
+from src.core.verifiable_share import VerifiableShare
+from src.core.environment import CryptographyEnvironment
+from src.core.commitments import PolynomialCommitments
+from src.core.pedersen import PedersenVSS
 
 class ShamirCryptography:
 
-    # TODO : добавить подробные комментарии
-    def __init__(self, threshold: int, person_id: F_pElement,
-                 secret: F_pElement):
-        if not isinstance(threshold, int):
-            raise TypeError("threshold must be an integer, not "
-                            f"'{threshold.__class__.__name__}'")
-        if not isinstance(person_id, F_pElement):
-            raise TypeError("person_id must be an instance of F_pElement, "
-                            f"not '{person_id.__class__.__name__}'")
-        if not isinstance(secret, F_pElement):
-            raise TypeError("secret must be an instance of F_pElement, not "
-                            f"'{secret.__class__.__name__}'")
-        if threshold <= 0:
-            raise ValueError("threshold must be positive")
-        if person_id.p != secret.p:
-            raise ValueError("person_id and secret must be from "
-                             "the same field")
+    def __init__(self, environment: CryptographyEnvironment,
+                 person_id: F_pElement, secret: F_pElement):
+        if not isinstance(environment, CryptographyEnvironment):
+            raise TypeError("environment must be an instance of "
+                            "CryptographyEnvironment")
+        if not environment.contains_F_pElement(person_id):
+            raise TypeError("person_id must be an element of F_p from the "
+                            "environment")
+        if not environment.contains_F_pElement(secret):
+            raise TypeError("secret must be an element of F_p from the "
+                            "environment")
         
-        self.__threshold = threshold
+        self.__environment = environment
         self.__person_id = person_id
         self.__secret = secret
         self.__personal_polynomial = F_pPolynomial.random(self.__person_id.p,
                                             degree_bound=self.__threshold-1,
                                             least_coefficient=self.__secret)
+        self.__pedersen_vss = PedersenVSS(self.__environment,
+                                          self.__personal_polynomial)
 
-    
+    @property
+    def environment(self) -> CryptographyEnvironment:
+        return self.__environment
+
     @property
     def person_id(self) -> F_pElement:
         return self.__person_id
@@ -44,16 +46,35 @@ class ShamirCryptography:
     def personal_polynomial(self) -> F_pPolynomial:
         return self.__personal_polynomial
 
-    def share_part_with(self, other_id: F_pElement) -> Share:
-        return self.__personal_polynomial.share_at(other_id)
+    @property
+    def pedersen_vss(self) -> PedersenVSS:
+        return self.__pedersen_vss
 
-    # TODO : написать подробный комментарий
+    @property
+    def blinding_polynomial(self) -> F_pPolynomial:
+        return self.__pedersen_vss.blinding_polynomial
+
+    def verifiable_share_to(self, other_id: F_pElement) -> VerifiableShare:
+        return self.__pedersen_vss.verifiable_share_to(other_id)
+
+    def verify(self, verifiable_share: VerifiableShare,
+                   public_commitments: PolynomialCommitments) -> bool:
+        return self.__pedersen_vss.verify(verifiable_share, public_commitments)
+
     @staticmethod
-    def total_sum_at_participant(shares: List[Share]) -> Share:
-        x = shares[0].x
-        return sum(shares, start=Share(x, F_pElement.zero(x.p)))
+    def commitments_of_total_sum(
+                    commitments_of_polynomials: List[PolynomialCommitments]
+                    ) -> PolynomialCommitments:
+        return PedersenVSS.commitments_of_total_sum(commitments_of_polynomials)
 
-    # TODO : написать подробный комментарий
+    @staticmethod
+    def total_sum_at_participant(shares: List[VerifiableShare]
+                                 ) -> VerifiableShare:
+        sum_share = shares[0]
+        for share in shares[1:]:
+            sum_share += share
+        return sum_share
+
     @staticmethod
     def sum_of_secrets(shares_of_sum: List[Share],
                        threshold: int) -> F_pElement:

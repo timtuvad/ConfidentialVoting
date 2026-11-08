@@ -1,22 +1,22 @@
-from typing import List
+from typing import List, Tuple, Iterable
 from ..utils import is_prime
 from .field import F_pElement
 
 class F_pPolynomial:
 
     def __init__(self, p: int | None = None,
-                 coefficients: List[F_pElement]|None = None):
+                 coefficients: Iterable[F_pElement]|None = None):
         if p is not None and not is_prime(p):
             raise ValueError(f"p must be prime, cannot be {p}")
-        if p is None and (coefficients is None or len(coefficients) == 0):
+        coefficients = tuple([] if coefficients is None
+                                    else coefficients)
+        if p is None and len(coefficients) == 0:
             raise ValueError("p or coefficients must be provided")
         self.__p = coefficients[0].p if p is None else p
-        self.__coefficients = tuple([] if coefficients is None
-            else F_pPolynomial.__rstrip(coefficients, F_pElement.zero(self.__p)))
-        if any(coefficient.p != self.__p
-               for coefficient in self.__coefficients):
-            raise TypeError(
-                f"coefficients must be from the field of order {self.__p}")
+        if any(coefficient.p != self.__p for coefficient in coefficients):
+            raise TypeError("coefficients must be from the same field")
+        self.__coefficients = F_pPolynomial.__reduce_zero(coefficients,
+                                                          self.__p)
 
     @property
     def p(self) -> int:
@@ -28,9 +28,13 @@ class F_pPolynomial:
             return float('-inf')
         return len(self.__coefficients) - 1
 
+    @property
+    def coefficients(self) -> Tuple[F_pElement, ...]:
+        return self.__coefficients
+
     @staticmethod
     def one(p: int):
-        return F_pPolynomial(p, coefficients=[F_pElement.one(p)])
+        return F_pPolynomial._new(p, coefficients=(F_pElement.one(p),))
 
     @staticmethod
     def random(p: int, degree_bound: int,
@@ -42,17 +46,18 @@ class F_pPolynomial:
         if degree_bound < 0:
             raise ValueError("degree_bound must be non-negative")
         if least_coefficient is None:
-            coefficients = (F_pElement.random(p)
+            coefficients_gen = (F_pElement.random(p)
                             for _ in range(degree_bound+1))
         else:
-            coefficients = ([least_coefficient] + [F_pElement.random(p)
-                            for _ in range(degree_bound)])
-        return F_pPolynomial(p, coefficients=coefficients)
+            coefficients_gen = ([least_coefficient] + [F_pElement.random(p)
+                                for _ in range(degree_bound)])
+        coefficients = F_pPolynomial.__reduce_zero(coefficients_gen, p)
+        return F_pPolynomial._new(p, coefficients=coefficients)
 
     def share_at(self, x: F_pElement):
         """Метод `polynomial.share_at(x)` был удален.
         
-        Пожалуйста, используйте вместо него статический метод `Share.make(polynomial, x`)."""
+        Пожалуйста, используйте вместо него статический метод `Share.make(polynomial, x)`."""
 
         raise NotImplementedError()
 
@@ -78,8 +83,7 @@ class F_pPolynomial:
         return hash((self.__p, self.__coefficients))
 
     def str_format(self, degree_bound: int|None = None) -> str:
-        degree = (degree_bound
-                  if degree_bound is not None
+        degree = (degree_bound if degree_bound is not None
                   else max(self.degree, 0))
         return " + ".join(str(self[i]) + (f"x^{i}" if i != 0 else "")
                           for i in range(degree, -1, -1))
@@ -95,14 +99,15 @@ class F_pPolynomial:
         return self
 
     def __neg__(self):
-        return F_pPolynomial(self.__p,
-                             coefficients=[-c for c in self.__coefficients])
+        return F_pPolynomial._new(self.__p,
+                        coefficients=tuple(-c for c in self.__coefficients))
 
     def __add__(self, other):
         self.__check_types(other, '+')
         coeff_count = max(len(self.__coefficients), len(other.__coefficients))
-        coefficients = (self[i]+other[i] for i in range(coeff_count))
-        return F_pPolynomial(self.__p, coefficients=coefficients)
+        coefficients_gen = (self[i]+other[i] for i in range(coeff_count))
+        coefficients = F_pPolynomial.__reduce_zero(coefficients_gen, self.__p)
+        return F_pPolynomial._new(self.__p, coefficients=coefficients)
 
     def __sub__(self, other):
         self.__check_types(other, '-')
@@ -125,7 +130,8 @@ class F_pPolynomial:
                 for j in range(len(other.__coefficients)):
                     coefficients[i + j] += (self.__coefficients[i] *
                                             other.__coefficients[j])
-            return F_pPolynomial(self.__p, coefficients=coefficients)
+            coefficients = tuple(coefficients)
+            return F_pPolynomial._new(self.__p, coefficients=coefficients)
 
     def __truediv__(self, other: F_pElement):
         return self * (~other)
@@ -137,6 +143,9 @@ class F_pPolynomial:
         if not isinstance(x, F_pElement):
             raise TypeError(f"polynomial argument must be a F_pElement, not "
                             f"'{x.__class__.__name__}'")
+        if self.__p != x.p:
+            raise TypeError(f"polynomial argument must be in the same field "
+                            f"as the polynomial, not F_{x.p}")
         value = F_pElement.zero(self.__p)
         x_to_i = F_pElement.one(self.__p)
         for coefficient in self.__coefficients:
@@ -144,12 +153,22 @@ class F_pPolynomial:
             x_to_i *= x
         return value
 
+    @classmethod
+    def _new(cls, p: int,
+             coefficients: Tuple[F_pElement, ...]) -> "F_pPolynomial":
+        obj = cls.__new__(cls)
+        obj.__p = p
+        obj.__coefficients = coefficients
+        return obj
+
     @staticmethod
-    def __rstrip(array, value):
+    def __reduce_zero(array: List[F_pElement],
+                      p: int) -> Tuple[F_pElement, ...]:
+        zero = F_pElement.zero(p)
         result = list(array)
-        while len(result) > 0 and result[-1] == value:
+        while len(result) > 0 and result[-1] == zero:
             result.pop()
-        return result
+        return tuple(result)
 
     def __check_types(self, other, operation: str):
         if not isinstance(other, F_pPolynomial):

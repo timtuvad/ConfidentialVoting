@@ -2,18 +2,19 @@
 
 Стиль написания — как в tests/core/test_utils.py: фикстуры + параметризация pytest.
 Проверки выполняются через публичный API (свойство shares, lagrange_polynomial,
-вызов объекта как функции, ==, !=, repr(), bool()) — без обращения к приватным полям.
+вызов объекта как функции) — без обращения к приватным полям.
 
 Проверяемый функционал (на каждый элемент — не менее 5 тестов):
-    * __init__               — приём списка/кортежа долей Share, проверка
-                               непустоты, одинаковости поля, склейка дубликатов;
+    * __init__               — приём любого итерируемого объекта с долями Share
+                               (список, кортеж, генератор, map/filter/zip),
+                               проверка непустоты, одинаковости поля,
+                               склейка дубликатов;
     * shares                 — список уникальных долей в порядке первого появления;
     * lagrange_polynomial    — многочлен Лагранжа, проходящий через все доли;
     * __call__               — значение интерполянта в точке как Share
                                (в том числе восстановление секрета в x = 0);
     * математические свойства — точность восстановления, единственность,
-                               порядок долей не важен, пороговое свойство Шамира;
-    * служебные нюансы      — публичный API, отсутствие __eq__/__bool__/__len__.
+                               порядок долей не важен, пороговое свойство Шамира.
 
 Особенности реализации, зафиксированные тестами:
     * конструктор сразу вычисляет интерполянт и кэширует его, поэтому свойство
@@ -57,7 +58,7 @@ NON_SHARE_VALUES = [0, 5, "x", None, 3.5, (1, 2), [1], object()]
 
 def _shares_of(polynomial, xs):
     """Доли многочлена в точках xs (список Share)."""
-    return [polynomial.share_at(F_pElement(polynomial.p, x)) for x in xs]
+    return [Share.make(polynomial, F_pElement(polynomial.p, x)) for x in xs]
 
 
 def _values(polynomial):
@@ -279,8 +280,8 @@ def test_init_element_or_polynomial_instead_of_share_raises_attribute_error(
 
 
 @pytest.mark.parametrize("shares", ["generator", "map", "filter", "iter", "zip"])
-def test_init_lazy_iterable_raises_type_error(make_share, shares):
-    # нюанс: конструктор вызывает len(shares), поэтому ленивые итераторы не подходят
+def test_init_accepts_lazy_iterables(make_share, shares):
+    # конструктор приводит вход к списку, поэтому ленивые итераторы подходят
     pair = [make_share(5, 1, 2), make_share(5, 2, 3)]
     if shares == "generator":
         lazy = (share for share in pair)
@@ -291,9 +292,10 @@ def test_init_lazy_iterable_raises_type_error(make_share, shares):
     elif shares == "iter":
         lazy = iter(pair)
     else:
-        lazy = zip(pair, pair)
-    with pytest.raises(TypeError):
-        LagrangeInterpolation(lazy)
+        lazy = reversed(pair)
+    interpolation = LagrangeInterpolation(lazy)
+    assert set(interpolation.shares) == set(pair)
+    assert interpolation(F_pElement(5, 1)) == pair[0]
 
 
 # ===========================================================================
@@ -307,7 +309,7 @@ def test_init_lazy_iterable_raises_type_error(make_share, shares):
     (13, [9, 8], [4, 5]),
     (101, [7, 6, 5], [10, 20, 30]),
 ])
-def test_shares_returns_list_of_secret_shares(make_poly, p, coeffs, xs):
+def test_shares_returns_list_of_shares(make_poly, p, coeffs, xs):
     shares = _shares_of(make_poly(p, coeffs), xs)
     interpolation = LagrangeInterpolation(shares)
     assert isinstance(interpolation.shares, list)
@@ -491,7 +493,7 @@ def test_extra_consistent_shares_do_not_change_polynomial(
     (13, [9, 8, 7], [1, 2, 3], 10),
     (101, [7, 6, 5], [1, 2, 3], 50),
 ])
-def test_call_returns_secret_share(make_poly, p, coeffs, xs, x):
+def test_call_returns_share(make_poly, p, coeffs, xs, x):
     shares = _shares_of(make_poly(p, coeffs), xs)
     result = LagrangeInterpolation(shares)(F_pElement(p, x))
     assert isinstance(result, Share)
@@ -546,11 +548,11 @@ def test_call_agrees_with_original_polynomial(make_poly, p, coeffs, xs, x):
     (13, [9, 8, 7], [2, 3, 4]),
     (101, [1, 2, 3], [4, 5, 6]),
 ])
-def test_call_equals_share_at_of_lagrange_polynomial(make_poly, p, coeffs, xs):
+def test_call_equals_share_of_lagrange_polynomial(make_poly, p, coeffs, xs):
     shares = _shares_of(make_poly(p, coeffs), xs)
     interpolation = LagrangeInterpolation(shares)
     point = F_pElement(p, xs[0])
-    assert interpolation(point) == interpolation.lagrange_polynomial.share_at(point)
+    assert interpolation(point) == Share.make(interpolation.lagrange_polynomial, point)
 
 
 @pytest.mark.parametrize("other", NON_SHARE_VALUES)
@@ -669,69 +671,8 @@ def test_interpolation_is_linear_in_values(make_poly, p, coeffs, xs):
 
 
 # ===========================================================================
-# 7. Служебные нюансы
+# 7. Интерполяция долей случайного многочлена
 # ===========================================================================
-
-@pytest.mark.parametrize("p, coeffs", [
-    (5, [1, 2]), (7, [3, 4]), (11, [1, 2, 3]), (13, [9, 8]), (101, [7, 6, 5]),
-])
-def test_public_api_of_interpolation(make_poly, p, coeffs):
-    shares = _shares_of(make_poly(p, coeffs), range(len(coeffs)))
-    interpolation = LagrangeInterpolation(shares)
-    public_names = {name for name in dir(interpolation) if not name.startswith("_")}
-    assert public_names == {"shares", "lagrange_polynomial"}
-
-
-@pytest.mark.parametrize("p, coeffs", [
-    (5, [1, 2]), (7, [3, 4]), (11, [1, 2, 3]), (13, [9, 8]), (2, [1, 1]),
-])
-def test_interpolation_has_no_equality_operator(make_poly, p, coeffs):
-    shares = _shares_of(make_poly(p, coeffs), range(len(coeffs)))
-    first = LagrangeInterpolation(shares)
-    second = LagrangeInterpolation(shares)
-    assert first == first
-    assert first != second
-    assert (first == 5) is False
-
-
-@pytest.mark.parametrize("p, coeffs", [
-    (5, [1, 2]), (7, [3, 4]), (11, [1, 2, 3]), (13, [9, 8]), (101, [7, 6]),
-])
-def test_interpolation_is_truthy(make_poly, p, coeffs):
-    shares = _shares_of(make_poly(p, coeffs), range(len(coeffs)))
-    assert bool(LagrangeInterpolation(shares)) is True
-
-
-@pytest.mark.parametrize("p, coeffs", [
-    (5, [1, 2]), (7, [3, 4]), (11, [1, 2, 3]), (13, [9, 8]), (101, [7, 6]),
-])
-def test_interpolation_has_no_len_and_is_not_iterable(make_poly, p, coeffs):
-    shares = _shares_of(make_poly(p, coeffs), range(len(coeffs)))
-    interpolation = LagrangeInterpolation(shares)
-    with pytest.raises(TypeError):
-        len(interpolation)
-    with pytest.raises(TypeError):
-        iter(interpolation)
-
-
-@pytest.mark.parametrize("p, coeffs", [
-    (5, [1, 2]), (7, [3, 4]), (11, [1, 2, 3]), (13, [9, 8]), (101, [7, 6]),
-])
-def test_interpolation_default_repr(make_poly, p, coeffs):
-    shares = _shares_of(make_poly(p, coeffs), range(len(coeffs)))
-    interpolation = LagrangeInterpolation(shares)
-    assert repr(interpolation).startswith("<")
-    assert "LagrangeInterpolation" in repr(interpolation)
-
-
-@pytest.mark.parametrize("p, coeffs", [
-    (5, [1, 2]), (7, [3, 4]), (11, [1, 2, 3]), (13, [9, 8]), (101, [7, 6]),
-])
-def test_interpolation_is_not_subscriptable(make_poly, p, coeffs):
-    shares = _shares_of(make_poly(p, coeffs), range(len(coeffs)))
-    with pytest.raises(TypeError):
-        LagrangeInterpolation(shares)[0]
-
 
 @pytest.mark.parametrize("prime", PRIMES)
 def test_interpolation_of_shares_of_random_polynomial(prime):

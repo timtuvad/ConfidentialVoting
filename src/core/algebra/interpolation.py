@@ -1,11 +1,12 @@
-from typing import List
+from typing import List, Iterable
 from .field import F_pElement
 from .polynomial import F_pPolynomial
 from ..share import Share
 
 class LagrangeInterpolation:
 
-    def __init__(self, shares: List[Share]):
+    def __init__(self, shares: Iterable[Share]):
+        shares = list(shares)
         if len(shares) < 1:
             raise ValueError("at least one share is required")
         self.__p = shares[0].p
@@ -23,11 +24,11 @@ class LagrangeInterpolation:
     def shares(self) -> List[Share]:
         return self.__shares
 
-    def __call__(self, x) -> Share:
-        return self.__largange_polynomial.share_at(x)
+    def __call__(self, x: F_pElement) -> Share:
+        return Share.make(self.__largange_polynomial, x)
 
     @staticmethod
-    def __filter_unique(shares: List[Share]) -> List[Share]:
+    def __filter_unique(shares: Iterable[Share]) -> List[Share]:
         unique_shares = {}
         for share in shares:
             if share.x in unique_shares:

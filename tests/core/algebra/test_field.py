@@ -7,7 +7,6 @@
     * p, value          — свойства только для чтения;
     * zero, one        — статические конструкторы;
     * random            — произвольный элемент поля (включая 0 и 1);
-    * randomGenerating  — случайный элемент, частный случай p == 2, непростое p;
     * __str__, __repr__ — строковое и отладочное представление;
     * __eq__, __ne__    — сравнение, в т.ч. с чужими типами и чужим полем;
     * __hash__          — хешируемость, согласованность с __eq__;
@@ -17,8 +16,8 @@
     * __pow__, __invert__ — возведение в степень (включая отрицательную и проверку
       типа показателя) и мультипликативное обращение;
     * __bool__          — ноль поля ложен, любой ненулевой элемент истинен;
-    * служебные нюансы — отсутствие __int__/__radd__/операторов порядка,
-      неизменяемость операндов, замкнутость операций, законы поля F_p.
+    * служебные нюансы — неизменяемость операндов, замкнутость операций,
+      законы поля F_p.
 
 Особенности реализации, зафиксированные тестами:
     * проверка типов в арифметике и в __eq__ выполняется через isinstance;
@@ -276,19 +275,6 @@ def test_value_property_is_stable_across_calls(make_element, p, value):
 @pytest.mark.parametrize("p, value", [
     (5, 2), (7, 3), (11, 4), (13, 5), (101, 6),
 ])
-def test_public_api_is_properties_and_static_constructors(make_element, p, value):
-    # нюанс инкапсуляции: состояние скрыто, публично доступны только свойства
-    # p/value и статические конструкторы zero/one/random/randomGenerating
-    el = make_element(p, value)
-    public_names = {name for name in dir(el) if not name.startswith("_")}
-    assert public_names == {"p", "value", "zero", "one", "random", "randomGenerating"}
-    assert not hasattr(el, "__p")
-    assert not hasattr(el, "__value")
-
-
-@pytest.mark.parametrize("p, value", [
-    (5, 2), (7, 3), (11, 4), (13, 5), (101, 6),
-])
 def test_properties_agree_with_str(make_element, p, value):
     el = make_element(p, value)
     assert str(el) == f"({el.value} mod {el.p})"
@@ -405,78 +391,7 @@ def test_one_returns_new_object_each_call(p):
 
 
 # ===========================================================================
-# 5. randomGenerating(p) — случайный элемент
-# ===========================================================================
-
-@pytest.mark.parametrize("p", [3, 5, 7, 11, 13, 101, 10 ** 9 + 7])
-def test_random_generating_returns_element_of_field(p):
-    for _ in range(15):
-        el = F_pElement.randomGenerating(p)
-        assert isinstance(el, F_pElement)
-        assert el.p == p
-
-
-@pytest.mark.parametrize("p", [3, 5, 7, 11, 13, 101, 10 ** 9 + 7])
-def test_random_generating_value_in_range_from_two_to_p(p):
-    # нюанс реализации: randrange(2, p) — значения 0 и 1 не генерируются
-    for _ in range(30):
-        value = F_pElement.randomGenerating(p).value
-        assert 2 <= value < p
-
-
-@pytest.mark.parametrize("p", [5, 7, 11, 13, 101])
-def test_random_generating_never_returns_zero_or_one(p):
-    values = {F_pElement.randomGenerating(p).value for _ in range(200)}
-    assert 0 not in values
-    assert 1 not in values
-
-
-@pytest.mark.parametrize("count", [1, 5, 20, 50])
-def test_random_generating_for_p_two_returns_one(count):
-    for _ in range(count):
-        el = F_pElement.randomGenerating(2)
-        assert el == F_pElement.one(2)
-        assert el.value == 1
-
-
-@pytest.mark.parametrize("p", NON_PRIMES)
-def test_random_generating_non_prime_raises_value_error(p):
-    with pytest.raises(ValueError, match=f"p must be prime, cannot be {p}"):
-        F_pElement.randomGenerating(p)
-
-
-def test_random_generating_produces_different_values():
-    values = {F_pElement.randomGenerating(101).value for _ in range(300)}
-    assert len(values) > 1
-
-
-@pytest.mark.parametrize("p", [5, 7, 11, 13, 101])
-def test_random_generating_returns_new_object_each_call(p):
-    assert F_pElement.randomGenerating(p) is not F_pElement.randomGenerating(p)
-
-
-@pytest.mark.parametrize("p", [5, 7, 11, 13])
-def test_random_generating_result_is_usable_in_arithmetic(p):
-    el = F_pElement.randomGenerating(p)
-    assert isinstance(el + el, F_pElement)
-    assert isinstance(el * el, F_pElement)
-    assert isinstance(-el, F_pElement)
-    assert isinstance(el ** 3, F_pElement)
-    assert isinstance(~el, F_pElement)
-
-
-@pytest.mark.parametrize("p", [5, 7, 11, 13, 101])
-def test_random_generating_covers_many_residues(p):
-    values = {F_pElement.randomGenerating(p).value for _ in range(400)}
-    assert values <= set(range(2, p))
-    assert len(values) > 1
-    if p == 101:
-        # 400 выборок из 99 возможных значений покрывают заметную часть поля
-        assert len(values) > 20
-
-
-# ===========================================================================
-# 5b. random(p) — произвольный элемент поля (включая 0 и 1)
+# 5. random(p) — произвольный элемент поля (включая 0 и 1)
 # ===========================================================================
 
 @pytest.mark.parametrize("p", PRIMES)
@@ -490,7 +405,7 @@ def test_random_returns_element_of_field(p):
 
 @pytest.mark.parametrize("p", [5, 7, 11, 13, 101])
 def test_random_can_return_zero_and_one(p):
-    # в отличие от randomGenerating, значения 0 и 1 достижимы
+    # значения 0 и 1 достижимы
     values = {F_pElement.random(p).value for _ in range(3000)}
     assert 0 in values
     assert 1 in values
@@ -552,15 +467,6 @@ def test_random_element_is_zero_or_invertible(p):
                 ~el
         else:
             assert el * ~el == F_pElement.one(p)
-
-
-@pytest.mark.parametrize("p", [5, 7, 11, 13, 101])
-def test_random_range_is_wider_than_random_generating(p):
-    random_values = {F_pElement.random(p).value for _ in range(2000)}
-    generating_values = {F_pElement.randomGenerating(p).value for _ in range(2000)}
-    assert random_values <= set(range(p))
-    assert generating_values <= set(range(2, p))
-    assert random_values - generating_values
 
 
 # ===========================================================================
@@ -1032,13 +938,6 @@ def test_add_non_element_raises_type_error(make_element, other):
         make_element(5, 1) + other
 
 
-@pytest.mark.parametrize("other", [1, 2, 5, 100, 0])
-def test_int_plus_element_raises_type_error(make_element, other):
-    # __radd__ не определён
-    with pytest.raises(TypeError):
-        other + make_element(5, 1)
-
-
 @pytest.mark.parametrize("p, v1, v2", [
     (5, 1, 2), (7, 3, 4), (11, 5, 6), (13, 7, 8), (101, 9, 10),
 ])
@@ -1136,12 +1035,6 @@ def test_sub_non_element_raises_type_error(make_element, other):
         make_element(5, 1) - other
 
 
-@pytest.mark.parametrize("other", [1, 2, 5, 0])
-def test_int_minus_element_raises_type_error(make_element, other):
-    with pytest.raises(TypeError):
-        other - make_element(5, 1)
-
-
 @pytest.mark.parametrize("p, v1, v2", [
     (5, 1, 2), (7, 3, 4), (11, 5, 6), (13, 7, 8), (101, 9, 10),
 ])
@@ -1236,12 +1129,6 @@ def test_mul_non_element_raises_type_error(make_element, other):
     # сообщения формирует интерпретатор (для str/list/tuple он отличается)
     with pytest.raises(TypeError):
         make_element(5, 2) * other
-
-
-@pytest.mark.parametrize("other", [2, 3, 5, 0, -1])
-def test_int_times_element_raises_type_error(make_element, other):
-    with pytest.raises(TypeError):
-        other * make_element(5, 2)
 
 
 @pytest.mark.parametrize("p, v1, v2", [
@@ -1584,12 +1471,6 @@ def test_truediv_non_element_raises_type_error(make_element, other):
         make_element(5, 1) / other
 
 
-@pytest.mark.parametrize("other", [2, 3, 5, 1])
-def test_int_divided_by_element_raises_type_error(make_element, other):
-    with pytest.raises(TypeError):
-        other / make_element(5, 1)
-
-
 @pytest.mark.parametrize("p, v1, v2", [
     (5, 3, 2), (7, 4, 3), (11, 6, 5), (13, 8, 7), (101, 20, 30),
 ])
@@ -1688,49 +1569,12 @@ def test_bool_agrees_with_comparison_to_zero(make_element, p, value):
 
 
 @pytest.mark.parametrize("p, value", [
-    (5, 3), (7, 1), (2, 1), (11, 5), (13, 12),
-])
-def test_element_cannot_be_converted_to_int(make_element, p, value):
-    with pytest.raises(TypeError):
-        int(make_element(p, value))
-
-
-@pytest.mark.parametrize("p, value", [
-    (5, 3), (7, 2), (11, 9), (13, 4), (101, 8),
-])
-def test_element_cannot_be_used_as_index(make_element, p, value):
-    with pytest.raises(TypeError):
-        [1, 2, 3][make_element(p, value)]
-
-
-@pytest.mark.parametrize("p, value", [
-    (5, 3), (7, 2), (11, 9), (13, 4), (101, 8),
-])
-def test_element_has_no_length(make_element, p, value):
-    with pytest.raises(TypeError):
-        len(make_element(p, value))
-
-
-@pytest.mark.parametrize("p, value", [
     (5, 2), (7, 3), (11, 4), (13, 5), (101, 6),
 ])
 def test_element_supports_membership_in_list(make_element, p, value):
     collection = [make_element(p, value), F_pElement.zero(p)]
     assert make_element(p, value) in collection
     assert make_element(p, value + 1) not in collection
-
-
-@pytest.mark.parametrize("p, value", [
-    (5, 2), (7, 3), (11, 4), (13, 5), (101, 6),
-])
-def test_ordering_operators_are_not_supported(make_element, p, value):
-    # __lt__/__le__/__gt__/__ge__ не определены -> сортировка и сравнения невозможны
-    first = make_element(p, value)
-    second = make_element(p, value + 1)
-    with pytest.raises(TypeError):
-        sorted([first, second])
-    with pytest.raises(TypeError):
-        first < second
 
 
 @pytest.mark.parametrize("p, v1, v2", [
@@ -1877,13 +1721,12 @@ def test_wrong_type_messages_mention_operand_types(make_element, p, value):
     (5, 1), (7, 2), (11, 3), (13, 4), (101, 5),
 ])
 def test_mul_by_int_delegates_to_other_operand(make_element, p, value):
-    # нюанс: __mul__ выполняет `other * self`, поэтому сообщение об ошибке
-    # формирует интерпретатор и порядок типов в нём обратный
+    # нюанс: __mul__ для типа не-F_pElement выполняет `other * self`,
+    # поэтому сообщение об ошибке формирует интерпретатор
     el = make_element(p, value)
-    for expression in (lambda: el * 3, lambda: 3 * el):
-        with pytest.raises(TypeError) as exc_info:
-            expression()
-        assert "unsupported operand type(s) for *" in str(exc_info.value)
+    with pytest.raises(TypeError) as exc_info:
+        el * 3
+    assert "unsupported operand type(s) for *" in str(exc_info.value)
 
 
 @pytest.mark.parametrize("p, value, other", [
@@ -1916,8 +1759,7 @@ def test_zero_division_message_mentions_field_order(make_element, p):
 @pytest.mark.parametrize("p", NON_PRIMES[:6])
 def test_prime_check_message_mentions_value(p):
     for constructor in (lambda: F_pElement(p),
-                        lambda: F_pElement.random(p),
-                        lambda: F_pElement.randomGenerating(p)):
+                        lambda: F_pElement.random(p)):
         with pytest.raises(ValueError) as exc_info:
             constructor()
         assert f"p must be prime, cannot be {p}" == str(exc_info.value)

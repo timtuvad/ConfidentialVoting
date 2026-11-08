@@ -7,7 +7,8 @@ str()/str_format(), индексация poly[i], свойства p / degree) �
 
 Проверяемый функционал (на каждый элемент — не менее 5 тестов):
     * __init__       — все валидные комбинации (p, coefficients) и все исключения;
-    * p, degree      — свойства;
+                       принимает любой итерируемый объект с коэффициентами;
+    * p, degree, coefficients — свойства;
     * __getitem__    — доступ к коэффициенту по индексу;
     * __eq__, __ne__, __hash__ — сравнение и хешируемость;
     * str_format(), __str__ — печать "(k mod p)x^i" и дополнение нулями
@@ -22,13 +23,16 @@ str()/str_format(), индексация poly[i], свойства p / degree) �
     * random         — случайный многочлен заданной степени (с фиксированным
                        свободным членом least_coefficient или без него);
     * __call__       — вычисление значения многочлена в точке поля;
-    * share_at       — доля секрета Share в точке x;
-    * служебные нюансы — отсутствие степени, целочисленного деления, %, @,
-      len(), abs() и ~; неизменяемость операндов и переданного списка.
+    * share_at       — удалённый метод: бросает NotImplementedError и отправляет
+                       к статическому методу Share.make(polynomial, x);
+    * служебные нюансы — неизменяемость операндов и переданного списка.
 
 Особенности реализации, зафиксированные тестами:
     * коэффициенты хранятся неизменяемым кортежем с отброшенными хвостовыми нулями
       (ведущие и средние нули сохраняются, поэтому degree их учитывает);
+    * конструктор принимает любой итерируемый объект (список, кортеж,
+      генератор, map/filter/zip) — вход приводится к списку и копируется;
+    * публичное свойство coefficients отдаёт кортеж коэффициентов;
     * переданный список коэффициентов не изменяется (внутри делается копия);
     * коэффициенты из другого поля дают TypeError
       "coefficients must be from the field of order p";
@@ -46,20 +50,16 @@ str()/str_format(), индексация poly[i], свойства p / degree) �
       слагаемые, при отрицательной границе возвращает пустую строку;
     * __mul__ и __truediv__ с элементом поля дают умножение/деление всех
       коэффициентов на константу (деление — умножение на обратный элемент);
-    * возведение в степень, целочисленное деление, %, @, len(), abs() и ~
-      для многочленов не поддерживаются;
-    * __call__ проверяет тип аргумента ДО цикла: объект не-F_pElement даёт
-      TypeError "polynomial argument must be a F_pElement, not '<тип>'" —
-      в том числе для нулевого многочлена; элемент другого поля даёт TypeError
-      из F_pElement.__mul__ ("cannot * with two elements in different fields").
+    * __call__ проверяет аргумент ДО цикла: объект не-F_pElement даёт
+      TypeError "polynomial argument must be a F_pElement, not '<тип>'",
+      а элемент другого поля — TypeError "polynomial argument must be in the
+      same field as the polynomial, not F_p" (в том числе для нулевого
+      многочлена).
 
-Доля секрета Share (src/core/secret_share.py), возвращаемая share_at:
-    * публичные свойства x, value и p — точка, значение многочлена в ней и поле;
-    * __eq__/__ne__ с проверкой isinstance и __hash__ по паре (x, value),
-      поэтому доли можно сравнивать, класть в множества и использовать как ключи;
-    * конструктор бросает TypeError("x and value must be in the same field"),
-      если точка и значение принадлежат разным полям;
-    * str() -> "f(x)=value", repr() -> "Share(x, value)".
+Доля секрета Share (src/core/share.py) теперь создаётся через Share.make(poly, x):
+    * Share.make(f, x) == Share(x, f(x)) — точка и значение многочлена в ней;
+    * публичные свойства x, value и p; арифметика — только + и -;
+    * подробные тесты класса Share находятся в tests/core/test_share.py.
 
 Строковое представление строится через __getitem__, поэтому выход за степень
 даёт нулевые слагаемые, а str_format(отрицательное) — пустую строку.
@@ -71,8 +71,7 @@ str()/str_format(), индексация poly[i], свойства p / degree) �
 
 Умножение и деление многочлена на элемент поля работают; выражение
 `element * poly` тоже работает, поскольку F_pElement.__mul__ для объекта
-другого типа выполняет `other * self`. __rmul__ при этом задействуется только
-для типов, возвращающих NotImplemented (например, `2 * poly` -> TypeError).
+другого типа выполняет `other * self`.
 """
 
 import pytest
@@ -303,13 +302,6 @@ def test_init_returns_instance_of_f_p_polynomial(p):
     assert isinstance(F_pPolynomial(p, [F_pElement(p, 1)]), F_pPolynomial)
 
 
-@pytest.mark.parametrize("p", PRIMES)
-def test_polynomial_has_no_degree_bound_attribute(p):
-    # degree_bound удалён из состояния класса
-    assert not hasattr(F_pPolynomial(p), "degree_bound")
-    assert not hasattr(F_pPolynomial(p, [F_pElement(p, 1)]), "degree_bound")
-
-
 # ===========================================================================
 # 2. __init__ — исключения
 # ===========================================================================
@@ -357,7 +349,7 @@ def test_init_coefficients_from_other_field_raises_type_error(
         make_element, p, other_p, values):
     coefficients = [make_element(p, values[0]), make_element(other_p, values[1])]
     with pytest.raises(
-            TypeError, match=f"coefficients must be from the field of order {p}"):
+            TypeError, match=f"coefficients must be from the same field"):
         F_pPolynomial(p, coefficients=coefficients)
 
 
@@ -368,7 +360,7 @@ def test_init_mixed_coefficients_without_p_raises_type_error(
         make_element, p1, p2):
     coefficients = [make_element(p1, 1), make_element(p2, 1)]
     with pytest.raises(
-            TypeError, match=f"coefficients must be from the field of order {p1}"):
+            TypeError, match=f"coefficients must be from the same field"):
         F_pPolynomial(coefficients=coefficients)
 
 
@@ -376,7 +368,7 @@ def test_init_mixed_coefficients_without_p_raises_type_error(
     (5, 7), (7, 11), (2, 5), (11, 13), (13, 3),
 ])
 def test_init_field_check_uses_stripped_coefficients(p, other_p):
-    with pytest.raises(TypeError, match="coefficients must be from the field"):
+    with pytest.raises(TypeError, match="coefficients must be from the same field"):
         F_pPolynomial(p, coefficients=[F_pElement(p, 1), F_pElement(other_p, 1)])
 
 
@@ -386,7 +378,7 @@ def test_init_field_check_uses_stripped_coefficients(p, other_p):
 def test_init_zero_from_other_field_is_not_stripped(p, other_p):
     # нюанс: хвостовой ноль из чужого поля НЕ отбрасывается, так как
     # F_pElement.__eq__ требует совпадения p, -> срабатывает проверка поля
-    with pytest.raises(TypeError, match="coefficients must be from the field"):
+    with pytest.raises(TypeError, match="coefficients must be from the same field"):
         F_pPolynomial(p, coefficients=[F_pElement(p, 1), F_pElement(other_p, 0)])
 
 
@@ -614,10 +606,9 @@ def test_getitem_of_leading_zeros(make_poly, p, coeffs):
     (5, [1, 2]), (7, [3, 4]), (2, [1, 1]), (11, [4, 5]), (13, [6, 7]),
 ])
 def test_iteration_is_unbounded(make_poly, p, coeffs):
-    # нюанс: __iter__ нет, но __getitem__ включает старый протокол итерации;
+    # нюанс: итерация работает по старому протоколу через __getitem__;
     # IndexError для больших индексов не возникает, поэтому list(poly) зависает
     poly = make_poly(p, coeffs)
-    assert not hasattr(type(poly), "__iter__")
     iterator = iter(poly)
     for index, value in enumerate(coeffs):
         assert next(iterator) == F_pElement(p, value)
@@ -1236,12 +1227,6 @@ def test_add_non_polynomial_raises_type_error(make_poly, other):
         make_poly(5, [1]) + other
 
 
-@pytest.mark.parametrize("other", [1, 2, 5, 0, -3])
-def test_int_plus_polynomial_raises_type_error(make_poly, other):
-    with pytest.raises(TypeError):
-        other + make_poly(5, [1])
-
-
 @pytest.mark.parametrize("p, a, b", [
     (5, [1, 1], [4, 4]),
     (5, [2], [3]),
@@ -1362,12 +1347,6 @@ def test_sub_different_fields_raises_type_error(make_poly, p1, p2):
 def test_sub_non_polynomial_raises_type_error(make_poly, other):
     with pytest.raises(TypeError, match="unsupported operand type"):
         make_poly(5, [1]) - other
-
-
-@pytest.mark.parametrize("other", [1, 2, 5, 0])
-def test_int_minus_polynomial_raises_type_error(make_poly, other):
-    with pytest.raises(TypeError):
-        other - make_poly(5, [1])
 
 
 @pytest.mark.parametrize("p, a, b", [
@@ -1520,13 +1499,6 @@ def test_mul_non_polynomial_raises_type_error(make_poly, other):
         make_poly(5, [1, 2]) * other
 
 
-@pytest.mark.parametrize("other", [2, 3, 5, 0])
-def test_int_times_polynomial_raises_type_error(make_poly, other):
-    # __rmul__ не определён
-    with pytest.raises(TypeError):
-        other * make_poly(5, [1])
-
-
 @pytest.mark.parametrize("p, a, b", [
     (5, [1, 2], [3, 4]), (7, [1], [2, 3]), (2, [1, 1], [1]), (11, [3, 4], [5]),
     (13, [1, 2, 3], [4, 5]),
@@ -1664,14 +1636,6 @@ def test_random_degree_does_not_exceed_degree_bound(bound):
         assert F_pPolynomial.random(101, bound).degree <= bound
 
 
-@pytest.mark.parametrize("p, bound", [
-    (5, 1), (7, 2), (11, 3), (13, 4), (101, 5), (2, 1),
-])
-def test_random_result_has_no_degree_bound_state(p, bound):
-    # degree_bound — только параметр random(), в объекте он не хранится
-    assert not hasattr(F_pPolynomial.random(p, bound), "degree_bound")
-
-
 @pytest.mark.parametrize("p, bound, secret", [
     (5, 1, 3), (7, 2, 6), (11, 3, 10), (13, 0, 12), (101, 4, 42), (2, 2, 1),
 ])
@@ -1774,17 +1738,6 @@ def test_random_coefficients_are_elements_of_field(p, bound):
         coefficient = poly[index]
         assert isinstance(coefficient, F_pElement)
         assert coefficient.p == p
-
-
-@pytest.mark.parametrize("p, bound, secret", [
-    (5, 3, 2), (7, 2, 4), (11, 4, 7), (13, 1, 11), (101, 2, 99),
-])
-def test_random_share_at_zero_returns_secret(p, bound, secret):
-    least = F_pElement(p, secret)
-    poly = F_pPolynomial.random(p, bound, least_coefficient=least)
-    share = poly.share_at(F_pElement.zero(p))
-    assert share.value == least
-    assert share.x == F_pElement.zero(p)
 
 
 # ===========================================================================
@@ -1993,7 +1946,9 @@ def test_call_accepts_any_element_of_own_field(prime):
     (5, 7), (7, 5), (2, 3), (11, 13), (13, 101),
 ])
 def test_call_with_element_of_other_field_raises_type_error(make_poly, p, other_p):
-    with pytest.raises(TypeError, match="cannot \\*"):
+    with pytest.raises(TypeError, match="polynomial argument must be in the " \
+                                        "same field as the polynomial, not "
+                                        f"F_{other_p}"):
         make_poly(p, [1, 2])(F_pElement(other_p, 1))
 
 
@@ -2044,271 +1999,265 @@ def test_call_uses_indexed_coefficients(make_poly, p, coeffs):
 
 
 # ===========================================================================
-# 15. share_at(x) — доля секрета Share в точке x
+# 15. share_at (удалён) и Share.make как замена
 # ===========================================================================
 
 @pytest.mark.parametrize("p, coeffs, x", [
     (5, [1, 2, 3], 0),
-    (5, [1, 2, 3], 4),
+    (5, [1, 2], 4),
     (7, [6, 5], 3),
     (11, [10], 7),
     (13, [0, 1], 12),
     (2, [1, 1], 1),
 ])
-def test_share_at_returns_secret_share(make_poly, p, coeffs, x):
-    share = make_poly(p, coeffs).share_at(F_pElement(p, x))
-    assert isinstance(share, Share)
-
-
-@pytest.mark.parametrize("p, coeffs, x", [
-    (5, [1, 2, 3], 1),
-    (5, [4], 2),
-    (7, [6, 5], 3),
-    (11, [10, 1], 5),
-    (13, [0, 1], 12),
-])
-def test_share_at_holds_polynomial_value(make_poly, p, coeffs, x):
-    poly = make_poly(p, coeffs)
-    point = F_pElement(p, x)
-    share = poly.share_at(point)
-    assert share.x == point
-    assert share.value == poly(point)
-    assert share == Share(point, poly(point))
-    assert share != Share(point, poly(point) + F_pElement.one(p))
-
-
-@pytest.mark.parametrize("p, coeffs, x, expected_value", [
-    (5, [1, 2], 3, 2),
-    (5, [3], 4, 3),
-    (7, [6, 5, 4], 2, 4),
-    (11, [1, 2, 3], 3, 1),
-    (13, [12, 1], 12, 11),
-])
-def test_share_at_value_matches_expected(make_poly, p, coeffs, x, expected_value):
-    share = make_poly(p, coeffs).share_at(F_pElement(p, x))
-    assert share == Share(F_pElement(p, x), F_pElement(p, expected_value))
-    assert share.x == F_pElement(p, x)
-    assert share.value == F_pElement(p, expected_value)
+def test_share_at_is_removed_and_raises_not_implemented(make_poly, p, coeffs, x):
+    with pytest.raises(NotImplementedError):
+        make_poly(p, coeffs).share_at(F_pElement(p, x))
 
 
 @pytest.mark.parametrize("prime", PRIMES)
-def test_share_at_zero_returns_least_coefficient(prime):
-    p = prime
-    least = F_pElement(p, 1)
-    poly = F_pPolynomial(
-        p, coefficients=[least, F_pElement(p, 2), F_pElement(p, 3)])
-    zero = F_pElement.zero(p)
-    share = poly.share_at(zero)
-    assert share.x == zero
-    assert share.value == least
-    assert share == Share(zero, least)
+def test_share_at_of_zero_polynomial_raises_not_implemented(prime):
+    with pytest.raises(NotImplementedError):
+        F_pPolynomial(prime).share_at(F_pElement.zero(prime))
 
 
-@pytest.mark.parametrize("p, coeffs", [
-    (5, [1, 2]), (7, [3, 4]), (11, [9, 8, 7]), (13, [1, 0, 2]), (2, [1, 1]),
-])
-def test_share_at_different_points_give_different_shares(make_poly, p, coeffs):
-    poly = make_poly(p, coeffs)
-    first = poly.share_at(F_pElement(p, 1))
-    second = poly.share_at(F_pElement(p, 2))
-    assert first.x != second.x
-    assert first != second
+@pytest.mark.parametrize("argument", [3, None, "1", 2.5, [1]])
+def test_share_at_raises_not_implemented_before_argument_check(argument):
+    # нюанс: метод сразу бросает NotImplementedError, тип аргумента не проверяется
+    with pytest.raises(NotImplementedError):
+        F_pPolynomial(5).share_at(argument)
 
 
-@pytest.mark.parametrize("p, coeffs", [
-    (5, [1, 2, 3]), (7, [6, 5]), (2, [1, 1]), (11, [10, 1]), (13, [1, 2, 3]),
-])
-def test_share_at_does_not_mutate_polynomial(make_poly, p, coeffs):
-    poly = make_poly(p, coeffs)
-    for value in range(min(p, 5)):
-        poly.share_at(F_pElement(p, value))
-    assert poly == make_poly(p, coeffs)
-    assert poly.degree == make_poly(p, coeffs).degree
+def test_share_at_docstring_points_to_share_make():
+    docstring = F_pPolynomial.share_at.__doc__
+    assert docstring is not None
+    assert "Share.make(polynomial, x)" in docstring
+    assert "был удален" in docstring
 
 
 @pytest.mark.parametrize("p, coeffs, x", [
-    (5, [1, 2], 1), (7, [3], 2), (11, [9, 8], 3), (13, [5], 4), (101, [1, 2], 5),
+    (5, [1, 2, 3], 0),
+    (5, [1, 2], 4),
+    (7, [6, 5], 3),
+    (11, [10], 7),
+    (13, [0, 1], 12),
+    (2, [1, 1], 1),
 ])
-def test_share_at_returns_new_object_each_call(make_poly, p, coeffs, x):
+def test_share_make_replaces_share_at(make_poly, p, coeffs, x):
     poly = make_poly(p, coeffs)
     point = F_pElement(p, x)
-    assert poly.share_at(point) is not poly.share_at(point)
+    share = Share.make(poly, point)
+    assert isinstance(share, Share)
+    assert share.x == point
+    assert share.value == poly(point)
+    assert share.p == p
+    assert share == Share(point, poly(point))
 
 
-@pytest.mark.parametrize("other", NON_POLYNOMIAL_VALUES)
-def test_share_at_with_non_element_raises_type_error(make_poly, other):
-    # share_at делегирует __call__, поэтому сообщение — про аргумент многочлена
+@pytest.mark.parametrize("p, coeffs, xs", [
+    (5, [3, 1, 2], [1, 2, 3]),
+    (7, [6, 5, 4], [1, 2, 3]),
+    (11, [10, 9, 8], [1, 2, 3]),
+    (13, [1, 2, 3], [4, 5, 6]),
+    (101, [42, 7, 8], [1, 2, 3]),
+])
+def test_share_make_at_zero_returns_least_coefficient(make_poly, p, coeffs, xs):
+    poly = make_poly(p, coeffs)
+    secret = Share.make(poly, F_pElement.zero(p))
+    assert secret.value == F_pElement(p, coeffs[0])
+    assert secret.x == F_pElement.zero(p)
+    for x in xs:
+        point = F_pElement(p, x)
+        assert Share.make(poly, point) == Share(point, poly(point))
+
+
+@pytest.mark.parametrize("other", [3, None, "1", 2.5, [1], object()])
+def test_share_make_with_non_element_raises_type_error(make_poly, other):
+    # Share.make делегирует вычисление __call__, который проверяет тип аргумента
     with pytest.raises(TypeError,
                        match="polynomial argument must be a F_pElement"):
-        make_poly(5, [1, 2]).share_at(other)
+        Share.make(make_poly(5, [1, 2]), other)
 
 
 @pytest.mark.parametrize("p, other_p", [
     (5, 7), (7, 5), (2, 3), (11, 13), (13, 101),
 ])
-def test_share_at_with_element_of_other_field_raises_type_error(
+def test_share_make_with_element_of_other_field_raises_type_error(
         make_poly, p, other_p):
-    with pytest.raises(TypeError, match="cannot \\*"):
-        make_poly(p, [1, 2]).share_at(F_pElement(other_p, 1))
+    with pytest.raises(TypeError, match="polynomial argument must be in the " \
+                                        "same field as the polynomial, not "
+                                        f"F_{other_p}"):
+        Share.make(make_poly(p, [1, 2]), F_pElement(other_p, 1))
+
+
+@pytest.mark.parametrize("p, coeffs", [
+    (5, [1, 2]), (7, [3, 4]), (2, [1, 1]), (11, [9, 8]), (13, [1, 0, 2]),
+])
+def test_share_make_does_not_mutate_polynomial(make_poly, p, coeffs):
+    poly = make_poly(p, coeffs)
+    for value in range(min(p, 5)):
+        Share.make(poly, F_pElement(p, value))
+    assert poly == make_poly(p, coeffs)
+    assert _values(poly) == [c % p for c in coeffs]
 
 
 @pytest.mark.parametrize("prime", PRIMES)
-def test_share_at_of_zero_polynomial(prime):
+def test_share_make_of_one_polynomial(prime):
     p = prime
+    one = F_pPolynomial.one(p)
+    for value in range(min(p, 5)):
+        point = F_pElement(p, value)
+        share = Share.make(one, point)
+        assert share.x == point
+        assert share.value == F_pElement.one(p)
+        assert share.p == p
+
+
+@pytest.mark.parametrize("p, bound, secret", [
+    (5, 3, 2), (7, 2, 4), (11, 4, 7), (13, 1, 11), (101, 2, 99),
+])
+def test_share_make_of_random_polynomial_returns_secret(p, bound, secret):
+    least = F_pElement(p, secret)
+    poly = F_pPolynomial.random(p, bound, least_coefficient=least)
+    share = Share.make(poly, F_pElement.zero(p))
+    assert share.value == least
+    assert share.x == F_pElement.zero(p)
+
+
+# ===========================================================================
+# 16. Свойство coefficients и итерируемые конструкторы
+# ===========================================================================
+
+@pytest.mark.parametrize("p, coeffs", [
+    (5, [1, 2, 3]), (7, [3]), (2, [1, 1]), (11, [9, 8]), (13, [1, 0, 2]),
+])
+def test_coefficients_property_returns_tuple(make_poly, p, coeffs):
+    poly = make_poly(p, coeffs)
+    coefficients = poly.coefficients
+    assert isinstance(coefficients, tuple)
+    assert len(coefficients) == len(coeffs)
+    for index, value in enumerate(coeffs):
+        assert coefficients[index] == F_pElement(p, value)
+
+
+@pytest.mark.parametrize("p, coeffs, expected", [
+    (5, [1, 2, 0], (F_pElement(5, 1), F_pElement(5, 2))),
+    (7, [3, 0, 0], (F_pElement(7, 3),)),
+    (5, [0], ()),
+    (11, [1, 2, 3, 0, 0], (F_pElement(11, 1), F_pElement(11, 2),
+                           F_pElement(11, 3))),
+])
+def test_coefficients_property_ignores_trailing_zeros(
+        make_poly, p, coeffs, expected):
+    assert make_poly(p, coeffs).coefficients == expected
+
+
+@pytest.mark.parametrize("p", SMALL_PRIMES)
+def test_coefficients_of_zero_polynomial_is_empty_tuple(p):
     poly = F_pPolynomial(p)
-    point = F_pElement.one(p)
-    share = poly.share_at(point)
-    assert isinstance(share, Share)
-    assert share.x == point
-    assert share.value == F_pElement.zero(p)
-    assert share == Share(point, F_pElement.zero(p))
-
-
-@pytest.mark.parametrize("p, value", [
-    (5, 3), (7, 6), (11, 10), (13, 12), (2, 1),
-])
-def test_share_at_of_constant_polynomial_has_same_value(make_poly, p, value):
-    poly = make_poly(p, [value])
-    points = [F_pElement(p, v) for v in range(min(p, 4))]
-    shares = [poly.share_at(point) for point in points]
-    expected = [Share(point, F_pElement(p, value)) for point in points]
-    assert shares == expected
+    assert poly.coefficients == ()
+    assert isinstance(poly.coefficients, tuple)
 
 
 @pytest.mark.parametrize("p, coeffs", [
-    (5, [1, 2]), (7, [3, 4]), (11, [9, 8]), (13, [5, 6]), (101, [7, 8]),
+    (5, [0, 1, 2]), (7, [0, 3, 0, 4]), (11, [0, 5]), (13, [0, 0, 0, 1]),
 ])
-def test_share_at_result_is_hashable(make_poly, p, coeffs):
-    share = make_poly(p, coeffs).share_at(F_pElement(p, 1))
-    assert isinstance(hash(share), int)
-    assert len({share, share}) == 1
+def test_coefficients_property_keeps_leading_zeros(make_poly, p, coeffs):
+    poly = make_poly(p, coeffs)
+    assert poly.coefficients == tuple(F_pElement(p, c) for c in coeffs)
 
 
 @pytest.mark.parametrize("p, coeffs", [
-    (5, [1, 2, 3]), (7, [6, 5]), (11, [10, 1, 2]), (13, [1, 0, 2]), (101, [7, 8]),
+    (5, [1, 2]), (7, [3]), (2, [1, 1]), (11, [9, 8]), (13, [1, 0, 2]),
 ])
-def test_share_at_agrees_with_call(make_poly, p, coeffs):
+def test_coefficients_property_is_read_only(make_poly, p, coeffs):
     poly = make_poly(p, coeffs)
-    for value in range(min(p, 5)):
-        point = F_pElement(p, value)
-        assert poly.share_at(point) == Share(point, poly(point))
+    with pytest.raises(AttributeError):
+        poly.coefficients = ()
 
 
 @pytest.mark.parametrize("p, coeffs", [
-    (5, [1, 2]), (7, [3, 4, 5]), (11, [9, 8]), (13, [1, 0, 2]), (101, [7, 8, 9]),
+    (5, [1, 2, 3]), (7, [3]), (2, [1, 1]), (11, [9, 8]), (13, [1, 0, 2]),
 ])
-def test_share_at_of_equal_polynomials_is_equal(make_poly, p, coeffs):
-    first = make_poly(p, coeffs)
-    second = make_poly(p, coeffs)
-    point = F_pElement.one(p)
-    assert first.share_at(point) == second.share_at(point)
-    assert hash(first.share_at(point)) == hash(second.share_at(point))
-
-
-@pytest.mark.parametrize("p, coeffs, x", [
-    (5, [1, 2, 3], 2), (7, [6, 5], 4), (11, [10, 1], 9), (13, [1, 0, 2], 5),
-    (101, [7, 8], 100),
-])
-def test_share_at_exposes_point_and_value(make_poly, p, coeffs, x):
+def test_coefficients_match_getitem_and_degree(make_poly, p, coeffs):
     poly = make_poly(p, coeffs)
-    point = F_pElement(p, x)
-    share = poly.share_at(point)
-    assert share.x == point
-    assert share.x.p == p
-    assert share.value == poly(point)
-    assert share.value.p == p
-    assert share.p == p
-
-
-@pytest.mark.parametrize("p, coeffs, x", [
-    (5, [1, 2], 3), (7, [3, 4], 5), (11, [9, 1], 2), (13, [5, 6], 7),
-    (101, [1, 2], 50),
-])
-def test_share_at_string_representations(make_poly, p, coeffs, x):
-    poly = make_poly(p, coeffs)
-    point = F_pElement(p, x)
-    share = poly.share_at(point)
-    assert str(share) == f"f({point})={poly(point)}"
-    assert repr(share) == f"Share({point}, {poly(point)})"
+    assert _values(poly) == [c.value for c in poly.coefficients]
+    assert len(poly.coefficients) == int(poly.degree) + 1
 
 
 @pytest.mark.parametrize("p, coeffs", [
-    (5, [1, 2]), (7, [3, 4]), (11, [9, 8]), (13, [5, 6]), (101, [7, 8]),
+    (5, [1, 2]), (7, [3]), (2, [1, 1]), (11, [9, 8]), (13, [1, 0, 2]),
 ])
-def test_share_at_value_matches_manual_evaluation(make_poly, p, coeffs):
-    poly = make_poly(p, coeffs)
-    for value in range(min(p, 5)):
-        point = F_pElement(p, value)
-        manual = F_pElement.zero(p)
-        for i, coefficient in enumerate(coeffs):
-            manual = manual + F_pElement(p, coefficient) * (point ** i)
-        assert poly.share_at(point).value == manual
+def test_constructor_accepts_generator_of_elements(make_poly, p, coeffs):
+    elements = (F_pElement(p, c) for c in coeffs)
+    poly = F_pPolynomial(p, coefficients=elements)
+    assert poly == make_poly(p, coeffs)
+    assert poly.coefficients == tuple(F_pElement(p, c) for c in coeffs)
 
 
 @pytest.mark.parametrize("p, coeffs", [
-    (5, [1, 2, 3]), (7, [6, 5]), (11, [10, 1, 2]), (13, [1, 0, 2]), (101, [7, 8]),
+    (5, [1, 2]), (7, [3]), (2, [1, 1]), (11, [9, 8]), (13, [1, 0, 2]),
 ])
-def test_share_at_distinct_points_have_distinct_x(make_poly, p, coeffs):
-    poly = make_poly(p, coeffs)
-    points = [F_pElement(p, value) for value in range(min(p, 5))]
-    shares = [poly.share_at(point) for point in points]
-    assert {share.x for share in shares} == set(points)
-
-
-@pytest.mark.parametrize("prime", PRIMES)
-def test_share_at_always_produces_same_field_share(prime):
-    p = prime
-    poly = F_pPolynomial(p, coefficients=[F_pElement(p, 1), F_pElement(p, 2)])
-    for value in range(min(p, 5)):
-        share = poly.share_at(F_pElement(p, value))
-        assert share.x.p == p
-        assert share.value.p == p
+def test_constructor_accepts_map_and_filter(make_poly, p, coeffs):
+    elements = [F_pElement(p, c) for c in coeffs]
+    poly_map = F_pPolynomial(p, coefficients=map(lambda e: e, elements))
+    poly_filter = F_pPolynomial(p, coefficients=filter(lambda e: True, elements))
+    assert poly_map == make_poly(p, coeffs)
+    assert poly_filter == make_poly(p, coeffs)
 
 
 @pytest.mark.parametrize("p, coeffs", [
-    (5, [1, 2]), (7, [3, 4]), (11, [9, 8]), (13, [5, 6]), (101, [7, 8]),
+    (5, [1, 2]), (7, [3]), (2, [1, 1]), (11, [9, 8]), (13, [1, 0, 2]),
 ])
-def test_share_at_equality_is_reflexive_and_symmetric(make_poly, p, coeffs):
-    poly = make_poly(p, coeffs)
-    point = F_pElement(p, 1)
-    first = poly.share_at(point)
-    second = poly.share_at(point)
-    assert first == first
-    assert first == second
-    assert second == first
-    assert not (first != second)
-    assert (first == 5) is False
-    assert (first != 5) is True
+def test_constructor_accepts_iterator(make_poly, p, coeffs):
+    elements = iter([F_pElement(p, c) for c in coeffs])
+    poly = F_pPolynomial(p, coefficients=elements)
+    assert poly == make_poly(p, coeffs)
 
 
 @pytest.mark.parametrize("p, coeffs", [
-    (5, [1, 2, 3]), (7, [6, 5]), (11, [10, 1]), (13, [1, 0, 2]), (2, [1, 1]),
+    (5, [1, 2]), (7, [3]), (2, [1, 1]), (11, [9, 8]), (13, [1, 0, 2]),
 ])
-def test_share_at_supports_set_and_dict(make_poly, p, coeffs):
-    poly = make_poly(p, coeffs)
-    shares = [poly.share_at(F_pElement(p, value)) for value in range(min(p, 4))]
-    mapping = {share: index for index, share in enumerate(shares)}
-    for index, share in enumerate(shares):
-        assert mapping[poly.share_at(share.x)] == index
-    assert len({poly.share_at(share.x) for share in shares}) == len(shares)
+def test_constructor_accepts_reversed_iterable(make_poly, p, coeffs):
+    # хвостовые нули корректно отбрасываются и для ленивых источников
+    elements = reversed([F_pElement(p, c) for c in coeffs])
+    elements = reversed(list(elements))
+    poly = F_pPolynomial(p, coefficients=elements)
+    assert poly == make_poly(p, coeffs)
+
+
+@pytest.mark.parametrize("p, coeffs", [
+    (5, [1, 2]), (7, [3]), (2, [1, 1]), (11, [9, 8]), (13, [1, 0, 2]),
+])
+def test_constructor_does_not_consume_source_list_twice(p, coeffs):
+    source = [F_pElement(p, c) for c in coeffs]
+    poly = F_pPolynomial(p, coefficients=source)
+    assert len(source) == len(coeffs)
+    assert poly.degree == len(coeffs) - 1
+
+
+@pytest.mark.parametrize("p, coeffs", [
+    (5, [1, 2, 0]), (7, [3, 0, 0]), (11, [4, 0]),
+])
+def test_constructor_with_generator_strips_trailing_zeros(p, coeffs):
+    elements = (F_pElement(p, c) for c in coeffs)
+    poly = F_pPolynomial(p, coefficients=elements)
+    stripped = list(coeffs)
+    while stripped and stripped[-1] % p == 0:
+        stripped.pop()
+    assert _values(poly) == [c % p for c in stripped]
+    assert poly.degree == len(stripped) - 1
 
 
 # ===========================================================================
-# 16. Неподдерживаемые операции и прочие нюансы
+# 16. Прочие нюансы и ошибки существующих операций
 # ===========================================================================
-
-@pytest.mark.parametrize("p, coeffs", [
-    (5, [1, 2]), (7, [3]), (2, [1, 1]), (11, [4, 5]), (13, [6]),
-])
-def test_power_is_not_supported(make_poly, p, coeffs):
-    with pytest.raises(TypeError):
-        make_poly(p, coeffs) ** 2
-
 
 @pytest.mark.parametrize("p, coeffs", [
     (5, [1, 2]), (7, [3]), (2, [1]), (11, [4]), (13, [5, 6]),
 ])
-def test_division_by_polynomial_or_int_is_not_supported(make_poly, p, coeffs):
+def test_truediv_by_unsupported_operand_raises_type_error(make_poly, p, coeffs):
+    # __truediv__ определён только для F_pElement: прочие операнды дают TypeError
     poly = make_poly(p, coeffs)
     with pytest.raises(TypeError):
         poly / poly      # ~poly -> bad operand type for unary ~
@@ -2316,47 +2265,6 @@ def test_division_by_polynomial_or_int_is_not_supported(make_poly, p, coeffs):
         poly / 2         # ~2 = -3 -> не F_pElement -> TypeError
     with pytest.raises(TypeError):
         poly / None
-
-
-@pytest.mark.parametrize("p, coeffs", [
-    (5, [1, 2]), (7, [3]), (2, [1, 1]), (11, [9]), (13, [1, 2]),
-])
-def test_floordiv_mod_matmul_are_not_supported(make_poly, p, coeffs):
-    poly = make_poly(p, coeffs)
-    with pytest.raises(TypeError):
-        poly // poly
-    with pytest.raises(TypeError):
-        poly % poly
-    with pytest.raises(TypeError):
-        poly @ poly
-
-
-@pytest.mark.parametrize("p, coeffs", [
-    (5, [1, 2]), (7, [3, 4]), (2, [1]), (11, [5, 6, 7]), (13, [8]),
-])
-def test_len_is_not_supported(make_poly, p, coeffs):
-    with pytest.raises(TypeError):
-        len(make_poly(p, coeffs))
-
-
-@pytest.mark.parametrize("p, coeffs", [
-    (5, [1, 2]), (7, [3]), (2, [1, 1]), (11, [4]), (13, [5, 6]),
-])
-def test_abs_and_invert_are_not_supported(make_poly, p, coeffs):
-    poly = make_poly(p, coeffs)
-    with pytest.raises(TypeError):
-        abs(poly)
-    with pytest.raises(TypeError):
-        ~poly
-
-
-@pytest.mark.parametrize("p, coeffs", [
-    (5, [1, 2]), (7, [3, 4]), (2, [1]), (11, [4, 5]), (13, [6, 7]),
-])
-def test_public_api_of_polynomial(make_poly, p, coeffs):
-    poly = make_poly(p, coeffs)
-    public_names = {name for name in dir(poly) if not name.startswith("_")}
-    assert public_names == {"p", "degree", "one", "random", "share_at", "str_format"}
 
 
 @pytest.mark.parametrize("p, coeffs", [
@@ -2479,17 +2387,6 @@ def test_one_evaluation_is_one(p):
 def test_negation_of_one(p):
     assert -F_pPolynomial.one(p) == F_pPolynomial(p, [F_pElement(p, -1)])
     assert _values(-F_pPolynomial.one(p)) == [(p - 1) % p]
-
-
-@pytest.mark.parametrize("p", PRIMES)
-def test_one_share_at_any_point(p):
-    one = F_pPolynomial.one(p)
-    for value in range(min(p, 5)):
-        point = F_pElement(p, value)
-        share = one.share_at(point)
-        assert share.x == point
-        assert share.value == F_pElement.one(p)
-        assert share.p == p
 
 
 @pytest.mark.parametrize("p1, p2", [

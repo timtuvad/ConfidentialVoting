@@ -1,4 +1,4 @@
-from random import randrange
+import secrets
 from ..utils import is_prime
 
 # F_pElement(p[, value=k]) — элемент поля F_p (со значением k mod p)
@@ -27,15 +27,20 @@ class F_pElement:
 
     @staticmethod
     def random(p: int):
-        F_pElement.__check_is_prime(p)
-        return F_pElement(p, value=randrange(p))
+        """Случайный элемент конечного поля F_p, где `p` — простое.
+            
+            Args:
+                p (int): порядок поля F_p
+            
+            Returns:
+                F_pElement: случайный элемент конечного поля F_p
+            
+            Raises:
+                ValueError: если `p` — не простое число
+        """
 
-    @staticmethod
-    def randomGenerating(p: int):
         F_pElement.__check_is_prime(p)
-        if p == 2:
-            return F_pElement.one(p)
-        return F_pElement(p, value=randrange(2, p))
+        return F_pElement._new(p, value=secrets.randbelow(p))
 
     def __str__(self):
         return f"({self.__value} mod {self.__p})"
@@ -58,26 +63,26 @@ class F_pElement:
         return self
 
     def __neg__(self):
-        return F_pElement(self.__p, (-self.__value) % self.__p)
+        return F_pElement._new(self.__p, (-self.__value) % self.__p)
 
     def __add__(self, other):
         self.__check_types(other, "+")
-        return F_pElement(self.__p, (self.__value + other.__value) % self.__p)
+        return F_pElement._new(self.__p, (self.__value + other.__value) % self.__p)
 
     def __sub__(self, other):
         self.__check_types(other, "-")
-        return self + (-other)
+        return F_pElement._new(self.__p, (self.__value - other.__value) % self.__p)
 
     def __mul__(self, other):
         if not isinstance(other, F_pElement):
             return other * self
         else:
             self.__check_types(other, "*")
-            return F_pElement(self.__p, (self.__value * other.__value) % self.__p)
+            return F_pElement._new(self.__p, (self.__value * other.__value) % self.__p)
 
     def __pow__(self, exp: int):
         self.__check_types(exp, "** or pow()", int)
-        return F_pElement(self.__p, pow(self.__value, exp, self.__p))
+        return F_pElement._new(self.__p, pow(self.__value, exp, self.__p))
 
     def __invert__(self):
         if self.__value == 0:
@@ -92,6 +97,13 @@ class F_pElement:
     def __bool__(self) -> bool:
         return self.__value != 0
 
+    @classmethod
+    def _new(cls, p: int, value: int) -> "F_pElement":
+        obj = cls.__new__(cls)
+        obj.__p = p
+        obj.__value = value
+        return obj
+
     @staticmethod
     def __check_is_prime(p: int):
         if not is_prime(p):
@@ -100,7 +112,8 @@ class F_pElement:
     def __check_types(self, other, operation: str, needed: type | None = None):
         if not isinstance(other, needed or type(self)):
             raise TypeError(f"unsupported operand type(s) for {operation}: "
-               f"'{self.__class__.__name__}' and '{other.__class__.__name__}'")
+                            f"'{self.__class__.__name__}' and "
+                            f"'{other.__class__.__name__}'")
         if needed is None:
             if self.__p != other.__p:
                 raise TypeError(f"cannot {operation} with two elements in "
