@@ -69,10 +69,10 @@ class ShamirCryptography:
         return PedersenVSS.commitments_of_total_sum(commitments_of_polynomials)
 
     @staticmethod
-    def total_sum_at_participant(shares: List[VerifiableShare]
+    def total_sum_at_participant(verifiable_shares: List[VerifiableShare]
                                  ) -> VerifiableShare:
-        sum_share = shares[0]
-        for share in shares[1:]:
+        sum_share = verifiable_shares[0]
+        for share in verifiable_shares[1:]:
             sum_share += share
         return sum_share
 
