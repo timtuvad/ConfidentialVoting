@@ -1,75 +1,48 @@
-"""Постоянные ID и состав участников. Реестр не выполняет голосование."""
+"""Постоянные номера участников при исключении. Нумерация не меняется."""
 from __future__ import annotations
 from dataclasses import dataclass
 
 
 @dataclass(frozen=True, slots=True)
-class MembershipEvent:
-    """Событие изменения состава (для журнала и последующего blockchain-адаптера)."""
-    kind: str  # registered | excluded
-    participant_id: int
-    round_id: int | None = None
+class ExclusionEvent:
+    round_id: int
+    excluded: tuple[int, ...]
+    evidence: tuple[str, ...]
 
 
 class ParticipantRegistry:
-    """Индексы ID постоянны и одновременно являются x координатами Шамира.
-
-    Ни register, ни exclude не перенумеровывают оставшихся участников.
-    Новые участники допускаются только до seal() (старта голосования).
-    """
-
-    def __init__(self) -> None:
-        self._registered: set[int] = set()
-        self._excluded: set[int] = set()
-        self._sealed = False
-        self._events: list[MembershipEvent] = []
-
-    @property
-    def sealed(self) -> bool:
-        return self._sealed
+    def __init__(self, participant_ids):
+        ids = tuple(sorted(participant_ids))
+        if len(ids) < 2 or len(ids) != len(set(ids)) or any(
+                type(i) is not int or i <= 0 for i in ids):
+            raise ValueError('Нужно не менее двух уникальных положительных ID')
+        self._all_ids = ids
+        self._active = set(ids)
+        self._events: list[ExclusionEvent] = []
 
     @property
     def all_ids(self) -> tuple[int, ...]:
-        return tuple(sorted(self._registered))
+        return self._all_ids
 
     @property
     def active_ids(self) -> tuple[int, ...]:
-        return tuple(sorted(self._registered - self._excluded))
+        return tuple(sorted(self._active))
 
     @property
     def excluded_ids(self) -> tuple[int, ...]:
-        return tuple(sorted(self._excluded))
+        return tuple(i for i in self._all_ids if i not in self._active)
 
     @property
-    def events(self) -> tuple[MembershipEvent, ...]:
+    def events(self) -> tuple[ExclusionEvent, ...]:
         return tuple(self._events)
 
-    def register(self, participant_id: int) -> None:
-        """Зарегистрировать уникальный положительный ID до старта."""
-        if self._sealed:
-            raise RuntimeError('Регистрация закрыта после начала голосования')
-        if type(participant_id) is not int or participant_id < 1:
-            raise ValueError('ID участника должен быть положительным целым')
-        if participant_id in self._registered:
-            raise ValueError(f'Участник {participant_id} уже зарегистрирован')
-        self._registered.add(participant_id)
-        self._events.append(MembershipEvent('registered', participant_id))
-
-    def seal(self) -> None:
-        """Необратимо закрыть регистрацию."""
-        self._sealed = True
-
-    def exclude_many(self, participant_ids: tuple[int, ...], round_id: int) -> None:
-        """Исключить атомарно весь набор; ID остаются зарезервированными."""
-        if not self._sealed:
-            raise RuntimeError('Исключения разрешены только после старта')
-        if type(round_id) is not int or round_id < 1:
-            raise ValueError('Номер раунда исключения должен быть >= 1')
-        ids = tuple(participant_ids)
-        if len(ids) != len(set(ids)):
-            raise ValueError('Повторные ID в запросе на исключение')
-        if any(i not in self._registered or i in self._excluded for i in ids):
-            raise ValueError('Исключить можно только активных участников')
-        for i in ids:
-            self._excluded.add(i)
-            self._events.append(MembershipEvent('excluded', i, round_id))
+    def exclude_many(self, participant_ids, round_id: int, evidence=()) -> None:
+        ids = tuple(sorted(set(participant_ids)))
+        if not ids:
+            return
+        if type(round_id) is not int or round_id < 0:
+            raise ValueError('Неверный round_id')
+        if any(i not in self._active for i in ids):
+            raise ValueError('Можно исключать только активных участников')
+        self._active.difference_update(ids)
+        self._events.append(ExclusionEvent(round_id, ids, tuple(evidence)))
