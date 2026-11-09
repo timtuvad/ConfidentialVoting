@@ -1,8 +1,13 @@
-from typing import Tuple, Iterable
-from src.core.environment import CryptographyEnvironment
+from __future__ import annotations
+
+from typing import Tuple, Iterable, TYPE_CHECKING
+
 from src.core.algebra.schnorr_group import SchnorrGroupElement
 from src.core.algebra.field import F_pElement
 from src.core.algebra.polynomial import F_pPolynomial
+
+if TYPE_CHECKING:
+    from src.core.environment import CryptographyEnvironment
 
 class PolynomialCommitments:
 
